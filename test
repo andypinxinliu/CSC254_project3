@@ -1,0 +1,10 @@
+read int n;
+int sum := 0;
+while n > 0 do
+    read int x;
+    int sum := x + sum;
+
+    
+    n := n - 1;
+end
+write float(sum) / n;
