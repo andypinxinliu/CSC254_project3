@@ -641,23 +641,31 @@
             ; skip this one because already there ["id"; ":="; "E"]; ----> ["read"; "TP"; "id"]; ["write"; "E"]
             ; ["if"; "C"; "then"; "SL"; "end"]; ["while"; "C"; "do"; "SL"; "end"]
             ]) *)
-
+            
    (* do we need to check the memory here for the int, id, real? *)
    | PT_nt("S", _, [PT_term("int", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
         -> [AST_i_dec(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
-   | PT_nt("S", _, [PT_term("read", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
+   | PT_nt("S", _, [PT_term("real", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
         -> [AST_read(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
-   | PT_nt("S", _, [PT_id(lhs, vloc); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
+   | PT_nt("S", _, [PT_id(lhs, vloc); PT_term(":=", aloc); expr])
         -> [AST_read(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
+   (* integrate TP in S *)
+   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, []), PT_id(lhs, vloc)])
+        -> [AST_read(lhs, vloc)]
+   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, PT_term("int", _)), PT_id(lhs, vloc)])
+        -> [AST_read(lhs, vloc)]
+   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, PT_term("real", _)), PT_id(lhs, vloc)])
+        -> [AST_read(lhs, vloc)]
+  
    | PT_nt("S", _, [PT_term("write", _); expr])
         -> [AST_write(ast_ize_expr expr)]
    | PT_nt("S", _, [PT_term("if", _); cond_stmt; PT_term("then", _); stmt_list; PT_term("end", _)])
         -> [AST_if(ast_ize_cond cond_stmt, ast_ize_stmt_list stmt_list)]
-    | PT_nt("S", _, [PT_term("while", _); cond_stmt; PT_term("do", _); stmt_list; PT_term("end", _)])
+   | PT_nt("S", _, [PT_term("while", _); cond_stmt; PT_term("do", _); stmt_list; PT_term("end", _)])
         -> [AST_while(ast_ize_cond cond_stmt, ast_ize_stmt_list stmt_list)]
    | _ -> raise (Failure "malformed parse tree in ast_ize_stmt")
  
- and ast_ize_expr (e:parse_tree) : ast_e =   (* C, E, T, or F *)
+ and ast_ize_expr (e:parse_tree) : ast_e = []  (* C, E, T, or F *)
    match e with
    (*
      NOTICE: your code here
@@ -677,7 +685,7 @@
     
    | _ -> raise (Failure "malformed parse tree in ast_ize_expr")
  
- and ast_ize_expr_tail (lhs:ast_e) (tail:parse_tree) : ast_e =   (* ET,TT, or FT *)
+ and ast_ize_expr_tail (lhs:ast_e) (tail:parse_tree) : ast_e =  [] (* ET,TT, or FT *)
 
   (* type parse_tree =   (* among other things, parse_trees are *)
   | PT_error          (* the elements of the attribute stack *)
@@ -715,11 +723,11 @@
   ; ("FT", [["MO"; "F"; "FT"]; []])
   ; ("F",  [["id"]; ["i_num"]; ["r_num"]; ["("; "E"; ")"]; ["trunc"; "("; "E"; ")"]; ["float"; "("; "E"; ")"]]) *)
 
-   match tail with
+   (* match tail with *)
    (*
      NOTICE: your code here
    *)
-    | PT_nt ("ET", [PT_term("+", _); term; term_tail])
+    (* | PT_nt ("ET", [PT_term("+", _); term; term_tail])
           -> ast_ize_expr_tail (AST_binop("+", lhs, ast_ize_expr term, _)) term_tail
     | PT_nt ("ET", [PT_term("-", _); term; term_tail])
           -> ast_ize_expr_tail (AST_binop("-", lhs, ast_ize_expr term, _)) term_tail
@@ -739,9 +747,9 @@
           -> AST_r_dec fact
     | PT_nt ("FT", [PT_id fact])
           -> AST_id fact
-   | _ -> raise (Failure "malformed parse tree in ast_ize_expr_tail")
+   | _ -> raise (Failure "malformed parse tree in ast_ize_expr_tail") *)
  
- and ast_ize_cond (c:parse_tree) : ast_e =
+ and ast_ize_cond (c:parse_tree) : ast_e = []
    match c with
    (*
      NOTICE: your code here
