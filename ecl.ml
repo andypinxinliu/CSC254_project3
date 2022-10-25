@@ -647,6 +647,8 @@
         -> [AST_i_dec(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
    | PT_nt("S", _, [PT_term("read", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
         -> [AST_read(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
+   | PT_nt("S", _, [PT_id(lhs, vloc); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
+        -> [AST_read(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
    | PT_nt("S", _, [PT_term("write", _); expr])
         -> [AST_write(ast_ize_expr expr)]
    | PT_nt("S", _, [PT_term("if", _); cond_stmt; PT_term("then", _); stmt_list; PT_term("end", _)])
