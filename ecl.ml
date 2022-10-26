@@ -976,7 +976,9 @@
    (*
      NOTICE: your code here
    *)
-   | _ -> st, [], []
+    | AST_error ->
+    | AST_
+    | _ -> st, [], []
  
  and translate_read (id:string) (loc:row_col) (* of variable *) (st:symtab)
      : symtab * string list * string list =
