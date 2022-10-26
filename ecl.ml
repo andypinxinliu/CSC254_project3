@@ -1138,7 +1138,7 @@
   *******************************************************************)
  
  let sum_ave_prog = "
-     read int a; read b; int sum := a + b;
+     read int a; read int b; int sum := a + b;
      write sum; write float(sum) / 2.0;";;
  
  let primes_prog = "
