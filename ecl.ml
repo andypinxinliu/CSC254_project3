@@ -979,18 +979,18 @@
     | AST_error -> raise (Failure "translate_s error")
     | AST_i_dec(id, loc) ->
       let (new_st, success) = insert_st id Int st in
-      if success then new_st, , [] else new_st, , [id ^ " cannot be redeclared here"]
+      if success then new_st, [id], [] else new_st, [], [id ^ " cannot be redeclared here"]
     | AST_r_dec(id, loc) ->
       let (new_st, success) = insert_st id Int st in
-      if success then new_st, , [] else new_st, , [id ^ " cannot be redeclared here"]
+      if success then new_st, [id], [] else new_st, [], [id ^ " cannot be redeclared here"]
     | AST_read(id, loc) -> 
-      let (new_st, code, error) = translate_read id loc in
+      let (new_st, code, error) = translate_read id loc st in
       new_st, code, error
-    | AST_write(id) ->
+    | AST_write(expr) ->
       let (new_st, code, error) = translate_write expr st in
       new_st, code, error
     | AST_assign(id, expr, vloc, aloc) ->
-      let (new_st, code, error) = translate_assign id expr vloc aloc
+      let (new_st, code, error) = translate_assign id expr vloc aloc st in
       new_st, code, error
     | _ -> st, [], []
  
@@ -1001,7 +1001,12 @@
    (*
      NOTICE: your code here
    *)
-   (new_st, code, error)
+   match error with
+    | "" -> 
+      (match tp with
+      | Int -> new_st, ["i[" ^ code ^ "] = getint();"], []
+      | Real -> new_st, ["r[" ^ code ^ "] = getreal();"], []
+      | _ -> new_st, [], [error])
  
  and translate_write (expr:ast_e) (st:symtab)
      : symtab * string list * string list =
@@ -1022,26 +1027,31 @@
    *)
    let (tp, code, error, new_st) = lookup_st id st vloc in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
-   let final_error = error @ rhs_error in 
+   let final_error = error :: rhs_error in 
    match final_error with
-   | [] -> (new_st, setup_code, [])
+   | [] -> 
+    if tp = rhs_tp then
+      (new_st, code :: setup_code @ [id ^ " = " ^ oprand.text], [])
+    else
+      (new_st, [], ["type mismatch"])
    | _ -> (new_st, [], final_error)
  
  and translate_if (c:ast_e) (sl:ast_sl) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
-      new_st = new_scope st
       match c with      (* sanity check *)
       | AST_binop(operator, lhs, rhs, vloc) -> 
       (*
         NOTICE: your code here
       *)
-        let (new_st, lhs_tp, setup_code, oprand, lhs_error) = translate_expr lhs new_st in
-        let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
-        let error = lhs_error @ rhs_error
+        let (new_st, lhs_tp, l_code, oprand, lhs_error) = translate_expr lhs st in
+        let (new_st, rhs_tp, r_code, oprand, rhs_error) = translate_expr rhs new_st in
+        let st2 = new_scope new_st in
+        let (st3, sl_code, sl_errs) = translate_sl sl st2 in
+        let error = lhs_error @ rhs_error @ sl_errs in
         match error with
-        | [] ->
-        | _ -> 
+        | [] -> (st3, l_code @ r_code @ sl_code, [])
+        | _ -> (st3, [], error)
       | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_while (c:ast_e) (sl:ast_sl) (st:symtab)
@@ -1050,7 +1060,20 @@
    (*
      NOTICE: your code here
    *)
-   (st, [], [])
+    match c with      (* sanity check *)
+      | AST_binop(operator, lhs, rhs, vloc) -> 
+      (*
+        NOTICE: your code here
+      *)
+        let (new_st, lhs_tp, l_code, oprand, lhs_error) = translate_expr lhs st in
+        let (new_st, rhs_tp, r_code, oprand, rhs_error) = translate_expr rhs new_st in
+        let st2 = new_scope new_st in
+        let (st3, sl_code, sl_errs) = translate_sl sl st2 in
+        let error = lhs_error @ rhs_error @ sl_errs in
+        match error with
+        | [] -> (st3, l_code @ r_code @ sl_code, [])
+        | _ -> (st3, [], error)
+      | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_expr (expr:ast_e) (st:symtab)
      : symtab * tp * string list * operand * string list =
@@ -1060,11 +1083,44 @@
    (*
      NOTICE: your code here
    *)
-    | AST_real(real, loc) -> (st, Real, [], {text = read; kind = Atom}, [])
-    | AST_id(id, loc) -> (st, Unknown, [], {text = id; kind = Temp}, [])
-    | AST_float(expr, loc) -> (st, Unknown, [], {text = id; kind = Temp}, [])
-    | AST_trunc(expr, loc) -> 
-    | AST_binop(expr, loc) ->
+    | AST_real(real, _) -> (st, Real, [], {text = real; kind = Atom}, [])
+    | AST_id(id, loc) -> 
+      let (tp, code, error, new_st) = lookup_st id st loc in
+        (match tp with
+        | Int -> (new_st, tp, [code], {text = id; kind = Atom}, [])
+        | Real -> (new_st, tp, [code], {text = id; kind = Atom}, [])
+        | Unknown -> (new_st, tp, [], {text = id; kind = Atom}, [error]))
+    | AST_float(ex, loc) -> 
+      let (st, tp, code, operand, error) = translate_expr ex st in
+      (match error with
+      | [] -> 
+        (match tp with
+        | Int -> (st, tp, code @ ["r[" ^ operand.text ^ "] = (float) i[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+        | _ -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
+        )
+      | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, error)
+      )
+    | AST_trunc(ex, loc) -> 
+      let (st, tp, code, operand, error) = translate_expr ex st in
+      (match error with
+      | [] -> 
+        (match tp with
+        | Real -> (st, tp, code @ ["r[" ^ operand.text ^ "] = (trunc) i[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+        | _ -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
+        )
+      | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, error)
+      )
+    | AST_binop(operator, ex1, ex2, loc) ->
+      let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in
+      let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in
+      let error = error1 @ error2 in
+      match error with
+      | [] -> 
+        if tp1 = tp2 then
+          (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+        else
+          (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["type mismatch"])
+      | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
     | _ -> (st, Unknown, [], {text = ""; kind = Atom}, [])
  
  (* Perform static checks on AST.  Return output code and error messages as
@@ -1159,6 +1215,12 @@
  let sqrt_parse_tree = parse ecg_parse_table sqrt_prog;;
  let sqrt_syntax_tree = ast_ize_prog sqrt_parse_tree;;
  
+ (* NOW TESTING AST to C*)
+ let sum_ave_code = translate_ast sum_ave_syntax_tree;;
+  let gcd_code = translate_ast gcd_syntax_tree;;
+  let primes_code = translate_ast primes_syntax_tree;;
+  let sqrt_code = translate_ast sqrt_syntax_tree;;
+
  let main () =
  
    let lines = ref [] in
