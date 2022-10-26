@@ -1001,14 +1001,11 @@
    (*
      NOTICE: your code here
    *)
-   match error with
-    | "" -> 
-      (match tp with
-      | Int -> new_st, ["i[" ^ code ^ "] = getint();"], []
-      | Real -> new_st, ["r[" ^ code ^ "] = getreal();"], []
-      | _ -> new_st, [], [error])
+  match tp with
+    | Int -> new_st, ["i[" ^ code ^ "] = getint();"], []
+    | Real -> new_st, ["r[" ^ code ^ "] = getreal();"], []
     | _ -> new_st, [], [error]
- 
+
  and translate_write (expr:ast_e) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
