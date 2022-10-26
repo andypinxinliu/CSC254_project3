@@ -670,10 +670,10 @@
         -> AST_real (fact, vloc)
   | PT_nt ("F", _, [PT_term("(", _); expr; PT_term(")", _)]) 
         -> ast_ize_expr expr
-  | PT_nt ("F", _, [PT_term("trunc", _); PT_term("(", _); expr; PT_term(")", _)]) 
-        -> ast_ize_expr expr
-  | PT_nt ("F", _, [PT_term("float", _); PT_term("(", _); expr; PT_term(")", _)]) 
-        -> ast_ize_expr expr
+  | PT_nt ("F", _, [PT_term("trunc", vloc); PT_term("(", _); expr; PT_term(")", _)]) 
+        -> AST_trunc(ast_ize_expr expr, vloc)
+  | PT_nt ("F", _, [PT_term("float", vloc); PT_term("(", _); expr; PT_term(")", _)]) 
+        -> AST_float(ast_ize_expr expr, vloc)
   | _ -> raise (Failure "malformed parse tree in ast_ize_expr")
  
  and ast_ize_expr_tail (lhs:ast_e) (tail:parse_tree) : ast_e =   (* TT or FT *)
@@ -976,27 +976,41 @@
    (*
      NOTICE: your code here
    *)
-    | AST_error ->
-    | AST_
+    | AST_error -> raise (Failure "translate_s error")
+    | AST_i_dec(id, loc) ->
+      let (new_st, success) = insert_st id Int st in
+      if success then new_st, , [] else new_st, , [id ^ " cannot be redeclared here"]
+    | AST_r_dec(id, loc) ->
+      let (new_st, success) = insert_st id Int st in
+      if success then new_st, , [] else new_st, , [id ^ " cannot be redeclared here"]
+    | AST_read(id, loc) -> 
+      let (new_st, code, error) = translate_read id loc in
+      new_st, code, error
+    | AST_write(id) ->
+      let (new_st, code, error) = translate_write expr st in
+      new_st, code, error
+    | AST_assign(id, expr, vloc, aloc) ->
+      let (new_st, code, error) = translate_assign id expr vloc aloc
+      new_st, code, error
     | _ -> st, [], []
  
  and translate_read (id:string) (loc:row_col) (* of variable *) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
-   let (_, _, _, _) = lookup_st id st loc in
+   let (tp, code, error, new_st) = lookup_st id st loc in 
    (*
      NOTICE: your code here
    *)
-   (st, [], [])
+   (new_st, code, error)
  
  and translate_write (expr:ast_e) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
-   let (_, _, _, _, _) = translate_expr expr st in
+   let (new_st, tp, code, self, error) = translate_expr expr st in
    (*
      NOTICE: your code here
    *)
-   (st, [], [])
+   (new_st, ["printf " ^ code], [error])
  
  and translate_assign (id:string) (rhs:ast_e) (vloc:row_col) (aloc:row_col) (st:symtab)
      : symtab * string list * string list =
@@ -1004,7 +1018,12 @@
    (*
      NOTICE: your code here
    *)
-   (st, [], [])
+   let (tp, code, error, new_st) = lookup_st id st vloc in
+   let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
+   let final_error = error @ rhs_error in 
+   match final_error with
+   | [] -> (new_st, setup_code, [])
+   | _ -> (new_st, [], final_error)
  
  and translate_if (c:ast_e) (sl:ast_sl) (st:symtab)
      : symtab * string list * string list =
@@ -1029,11 +1048,16 @@
      : symtab * tp * string list * operand * string list =
      (* new symtab, type, setup code, self, error messages *)
    match expr with
-   | AST_int(i, _)            -> (st, Int, [], {text = i; kind = Atom}, [])
+    | AST_int(i, _)            -> (st, Int, [], {text = i; kind = Atom}, [])
    (*
      NOTICE: your code here
    *)
-   | _ -> (st, Unknown, [], {text = ""; kind = Atom}, [])
+    | AST_real(real, loc) -> (st, Real, [], {text = read; kind = Atom}, [])
+    | AST_id(id, loc) -> (st, Unknown, [], {text = id; kind = Temp}, [])
+    | AST_float(expr, loc) -> (st, Unknown, [], {text = id; kind = Temp}, [])
+    | AST_trunc(expr, loc) -> 
+    | AST_binop(expr, loc) ->
+    | _ -> (st, Unknown, [], {text = ""; kind = Atom}, [])
  
  (* Perform static checks on AST.  Return output code and error messages as
     glued-together strings.  Empty error string means tree was error free. *)
