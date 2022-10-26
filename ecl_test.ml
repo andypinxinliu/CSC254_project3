@@ -956,8 +956,8 @@
 
  let rec debug_helper (str_list:string list) : string  =
   match str_list with
-  | [] -> (print_newline; print_newline; "")
-  | s :: rest -> (print_string s; print_newline; debug_helper rest)
+  | [] -> (print_endline ""; "")
+  | s :: rest -> (print_endline s; debug_helper rest)
 
  
  (* Like most of the translate_X routines, translate_sl accumulates code
@@ -972,9 +972,14 @@
        let (st2, s_code, s_errs) = translate_s s st in
        let (st3, sl_code, sl_errs) = translate_sl rest st2 in
        let errs = s_errs @ sl_errs in
-       (debug_helper errs;
+       (
+        print_endline "translate_sl";
+        print_endline "print the error here";
+        debug_helper errs;
+        print_endline "print the code here";
         debug_helper s_code;
         debug_helper sl_code;
+        print_endline "end of translate_sl";
        if errs = [] then (st3, s_code @ sl_code, [])
        else (st3, [], errs)
        )
@@ -1044,8 +1049,12 @@
    let (tp, code, error, new_st) = lookup_st id st vloc in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
    let final_error = error :: rhs_error in (
+    print_endline "translate_assign";
+    print_endline "print the error here";
     debug_helper final_error;
+    print_endline "print the code here";
     debug_helper setup_code;
+    print_endline "end of translate_assign";
    match final_error with
    | [] -> 
     if tp = rhs_tp then
@@ -1068,10 +1077,14 @@
         let st2 = new_scope new_st in
         let (st3, sl_code, sl_errs) = translate_sl sl st2 in
         let error = lhs_error @ rhs_error @ sl_errs in (
+            print_endline "translate_if";
+            print_endline "print the error we find here";
             debug_helper error;
+            print_endline "print the code here";
             debug_helper l_code;
             debug_helper r_code;
             debug_helper sl_code;
+            print_endline "finished translate_if";
             match error with
             | [] -> (st3, l_code @ r_code @ sl_code, [])
             | _ -> (st3, [], error)
@@ -1145,9 +1158,13 @@
       let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in
       let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in
       let error = error1 @ error2 in(
+        print_endline "translate_expr";
+        print_endline "print the error we find here";
         debug_helper error;
+        print_endline "print the code here";
         debug_helper code1;
         debug_helper code2;
+        print_endline "finished translate_expr";
         match error with
         | [] -> 
           if tp1 = tp2 then
