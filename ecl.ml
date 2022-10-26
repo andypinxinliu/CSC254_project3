@@ -1010,7 +1010,9 @@
    (*
      NOTICE: your code here
    *)
-   (new_st, ["printf " ^ code], [error])
+   match error with 
+   | [] -> (new_st, code, [])
+   | _ -> (new_st, [], error)
  
  and translate_assign (id:string) (rhs:ast_e) (vloc:row_col) (aloc:row_col) (st:symtab)
      : symtab * string list * string list =
@@ -1028,13 +1030,19 @@
  and translate_if (c:ast_e) (sl:ast_sl) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
-   match c with      (* sanity check *)
-   | AST_binop(_, _, _, _) ->
-   (*
-     NOTICE: your code here
-   *)
-       (st, [], [])
-   | _ -> raise (Failure "unexpected expression type as condition")
+      new_st = new_scope st
+      match c with      (* sanity check *)
+      | AST_binop(operator, lhs, rhs, vloc) -> 
+      (*
+        NOTICE: your code here
+      *)
+        let (new_st, lhs_tp, setup_code, oprand, lhs_error) = translate_expr lhs new_st in
+        let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
+        let error = lhs_error @ rhs_error
+        match error with
+        | [] ->
+        | _ -> 
+      | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_while (c:ast_e) (sl:ast_sl) (st:symtab)
      : symtab * string list * string list =
