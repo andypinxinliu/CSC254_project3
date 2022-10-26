@@ -956,8 +956,8 @@
 
  let rec debug_helper (str_list:string list) : string  =
   match str_list with
-  | [] -> ""
-  | s :: rest -> (print_string s; helper rest)
+  | [] -> (print_newline; print_newline; "")
+  | s :: rest -> (print_string s; print_newline; debug_helper rest)
 
  
  (* Like most of the translate_X routines, translate_sl accumulates code
@@ -972,9 +972,12 @@
        let (st2, s_code, s_errs) = translate_s s st in
        let (st3, sl_code, sl_errs) = translate_sl rest st2 in
        let errs = s_errs @ sl_errs in
+       (debug_helper errs;
+        debug_helper s_code;
+        debug_helper sl_code;
        if errs = [] then (st3, s_code @ sl_code, [])
        else (st3, [], errs)
- 
+       )
  and translate_s (s:ast_s) (st:symtab)
      : (symtab * string list * string list) =
      (* new symtab, code, error messages *)
@@ -1040,7 +1043,9 @@
    *)
    let (tp, code, error, new_st) = lookup_st id st vloc in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
-   let final_error = error :: rhs_error in 
+   let final_error = error :: rhs_error in (
+    debug_helper final_error;
+    debug_helper setup_code;
    match final_error with
    | [] -> 
     if tp = rhs_tp then
@@ -1048,6 +1053,7 @@
     else
       (new_st, [], ["assign type mismatch"])
    | _ -> (new_st, [], final_error)
+    )
  
  and translate_if (c:ast_e) (sl:ast_sl) (st:symtab)
      : symtab * string list * string list =
@@ -1061,10 +1067,15 @@
         let (new_st, rhs_tp, r_code, oprand, rhs_error) = translate_expr rhs new_st in
         let st2 = new_scope new_st in
         let (st3, sl_code, sl_errs) = translate_sl sl st2 in
-        let error = lhs_error @ rhs_error @ sl_errs in
-        match error with
-        | [] -> (st3, l_code @ r_code @ sl_code, [])
-        | _ -> (st3, [], error)
+        let error = lhs_error @ rhs_error @ sl_errs in (
+            debug_helper error;
+            debug_helper l_code;
+            debug_helper r_code;
+            debug_helper sl_code;
+            match error with
+            | [] -> (st3, l_code @ r_code @ sl_code, [])
+            | _ -> (st3, [], error)
+        )
       | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_while (c:ast_e) (sl:ast_sl) (st:symtab)
@@ -1133,29 +1144,33 @@
     | AST_binop(operator, ex1, ex2, loc) ->
       let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in
       let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in
-      let error = error1 @ error2 in
-      match error with
-      | [] -> 
-        if tp1 = tp2 then
-          (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
-        else(
+      let error = error1 @ error2 in(
+        debug_helper error;
+        debug_helper code1;
+        debug_helper code2;
+        match error with
+        | [] -> 
+          if tp1 = tp2 then
+            (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+          else(
 
-        (* Debug use *)
-          (match tp1 with
-          | Int -> print_string "int";
-          | Real -> print_string "real";
-          | _ -> print_string "unknown";
-          );
-          (match tp2 with
-          | Int -> print_string "int";
-          | Real -> print_string "real";
-          | _ -> print_string "unknown";
-          );
+          (* Debug use *)
+            (match tp1 with
+            | Int -> print_string "int";
+            | Real -> print_string "real";
+            | _ -> print_string "unknown";
+            );
+            (match tp2 with
+            | Int -> print_string "int";
+            | Real -> print_string "real";
+            | _ -> print_string "unknown";
+            );
 
-          (* above is for debug *)
-          (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
-          )
-      | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
+            (* above is for debug *)
+            (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
+            )
+        | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
+      )
     | _ -> (st, Unknown, [], {text = ""; kind = Atom}, [])
  
  (* Perform static checks on AST.  Return output code and error messages as
