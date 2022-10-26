@@ -1007,6 +1007,7 @@
       | Int -> new_st, ["i[" ^ code ^ "] = getint();"], []
       | Real -> new_st, ["r[" ^ code ^ "] = getreal();"], []
       | _ -> new_st, [], [error])
+    | _ -> new_st, [], [error]
  
  and translate_write (expr:ast_e) (st:symtab)
      : symtab * string list * string list =
