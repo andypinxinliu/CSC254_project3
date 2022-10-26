@@ -1184,6 +1184,7 @@
             );
 
             (* above is for debug *)
+            
             (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
             )
         | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
