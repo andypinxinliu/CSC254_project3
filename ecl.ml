@@ -981,7 +981,7 @@
       let (new_st, success) = insert_st id Int st in
       if success then new_st, [id], [] else new_st, [], [id ^ " cannot be redeclared here"]
     | AST_r_dec(id, loc) ->
-      let (new_st, success) = insert_st id Int st in
+      let (new_st, success) = insert_st id Real st in
       if success then new_st, [id], [] else new_st, [], [id ^ " cannot be redeclared here"]
     | AST_read(id, loc) -> 
       let (new_st, code, error) = translate_read id loc st in
