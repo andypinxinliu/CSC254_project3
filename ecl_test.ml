@@ -957,7 +957,7 @@
  let rec debug_helper (str_list:string list) : string  =
   match str_list with
   | [] -> (print_endline ""; "")
-  | s :: rest -> (print_endline s; debug_helper rest)
+  | s :: rest -> (print_string (s ^ " "); debug_helper rest)
 
  
  (* Like most of the translate_X routines, translate_sl accumulates code
@@ -992,20 +992,60 @@
    *)
     | AST_error -> raise (Failure "translate_s error")
     | AST_i_dec(id, loc) ->
-      let (new_st, success) = insert_st id Int st in
-      if success then new_st, [id], [] else new_st, [], [id ^ " cannot be redeclared here"]
+      let (new_st, success) = insert_st id Int st in(
+        print_endline ("declare the int " ^ id);
+        if success then (new_st, [id], []) 
+        else (new_st, [], [id ^ " cannot be redeclared here"])
+      )
     | AST_r_dec(id, loc) ->
-      let (new_st, success) = insert_st id Real st in
-      if success then new_st, [id], [] else new_st, [], [id ^ " cannot be redeclared here"]
+      let (new_st, success) = insert_st id Real st in (
+        print_endline ("declare the real " ^ id);
+        if success then (new_st, [id], []) 
+        else (new_st, [], [id ^ " cannot be redeclared here"])
+      )
     | AST_read(id, loc) -> 
-      let (new_st, code, error) = translate_read id loc st in
-      new_st, code, error
+      let (new_st, code, error) = translate_read id loc st in(
+        print_endline ("read the " ^ id);
+        (new_st, code, error)
+      )
     | AST_write(expr) ->
-      let (new_st, code, error) = translate_write expr st in
-      new_st, code, error
+      let (new_st, code, error) = translate_write expr st in(
+        print_endline "write";
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of write";
+        match error with
+        | [] -> (new_st, code, [])
+        | _ -> (new_st, [], error)
+      )
     | AST_assign(id, expr, vloc, aloc) ->
-      let (new_st, code, error) = translate_assign id expr vloc aloc st in
-      new_st, code, error
+      let (new_st, code, error) = translate_assign id expr vloc aloc st in(
+        print_endline ("assign the " ^ id);
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of assign";
+        match error with
+        | [] -> (new_st, code, [])
+        | _ -> (new_st, [], error)
+      )
+    | AST_if(expr, sl) ->
+      let (new_st, code, error) = translate_if expr sl st in(
+        print_endline "if";
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of if";
+        match error with
+        | [] -> (new_st, code, [])
+        | _ -> (new_st, [], error)
+      )
+    | AST_while(expr, sl) ->
+      let (new_st, code, error) = translate_while expr sl st in(
+        print_endline "while";
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of while";
+        (new_st, code, error)
+      )
     | _ -> st, [], []
  
  and translate_read (id:string) (loc:row_col) (* of variable *) (st:symtab)
@@ -1015,19 +1055,19 @@
    (*
      NOTICE: your code here
    *)
-   match error with
-    | "" -> 
-      (match tp with
+    (
+      match tp with
       | Int -> (
-        print_string id;
-          (new_st, ["i[" ^ id ^ "] = getint();"], [])
+        print_endline (id ^ " = getint();");
+          (new_st, [id ^ " = getint();"], [])
         )
       | Real -> (
-          print_string id;
-          (new_st, ["r[" ^ code ^ "] = getreal();"], [])
+          print_endline (id ^ " = getint();");
+          (new_st, [id ^ " = getint();"], [])
           )
-      | _ -> new_st, [], [error])
-    | _ -> new_st, [], [error]
+      | _ -> new_st, [], [error]
+    )
+
  
  and translate_write (expr:ast_e) (st:symtab)
      : symtab * string list * string list =
@@ -1036,9 +1076,26 @@
    (*
      NOTICE: your code here
    *)
-   match error with 
-   | [] -> (new_st, code, [])
-   | _ -> (new_st, [], error)
+   (
+    match error with 
+    | [] -> (
+        match tp with
+        | Int -> (
+          print_string ("putint(");
+          debug_helper code;
+          print_endline (");");
+          (new_st, ["putint("] @ code @ [");"], [])
+        )
+        | Real -> (
+          print_string ("putreal(");
+          debug_helper code;
+          print_endline (");");
+          (new_st, ["putreal("] @ code @ [");"], [])
+        )
+        | _ -> (new_st, [], error)
+      )
+    | _ -> (new_st, [], error)
+   )
  
  and translate_assign (id:string) (rhs:ast_e) (vloc:row_col) (aloc:row_col) (st:symtab)
      : symtab * string list * string list =
@@ -1048,21 +1105,15 @@
    *)
    let (tp, code, error, new_st) = lookup_st id st vloc in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
-   let final_error = error :: rhs_error in (
-    print_endline "translate_assign";
-    print_endline "print the error here";
-    debug_helper final_error;
-    print_endline "print the code here";
-    debug_helper setup_code;
-    print_endline "end of translate_assign";
-   match final_error with
-   | [] -> 
-    if tp = rhs_tp then
-      (new_st, code :: setup_code @ [id ^ " = " ^ oprand.text], [])
-    else
-      (new_st, [], ["assign type mismatch"])
-   | _ -> (new_st, [], final_error)
+   if error = "" && rhs_error = [] then
+      (
+        if tp = rhs_tp then
+          (new_st, [id ^ " := "] @ setup_code, [])
+        else
+          (new_st, [], ["assign type mismatch"])
     )
+    else
+      (new_st, [], [error] @ rhs_error)
  
  and translate_if (c:ast_e) (sl:ast_sl) (st:symtab)
      : symtab * string list * string list =
@@ -1129,13 +1180,17 @@
     | AST_real(real, _) -> (st, Real, [], {text = real; kind = Atom}, [])
     | AST_id(id, loc) -> 
       let (tp, code, error, new_st) = lookup_st id st loc in
-        (match tp with
-        | Int -> (new_st, tp, [code], {text = id; kind = Atom}, [])
-        | Real -> (new_st, tp, [code], {text = id; kind = Atom}, [])
-        | Unknown -> (new_st, tp, [], {text = id; kind = Atom}, [error]))
+        (
+          match tp with
+        | Int -> (new_st, tp, [id], {text = id; kind = Atom}, [])
+        | Real -> (new_st, tp, [id], {text = id; kind = Atom}, [])
+        | Unknown -> (new_st, tp, [], {text = id; kind = Atom}, [error])
+        )
     | AST_float(ex, loc) -> 
       let (st, tp, code, operand, error) = translate_expr ex st in
-      (match error with
+      (
+      print_endline ("do float here" ^ "r[" ^ operand.text ^ "] = (trunc) i[" ^ operand.text ^ "];");
+      match error with
       | [] -> 
         (
           match tp with
@@ -1148,9 +1203,11 @@
       let (st, tp, code, operand, error) = translate_expr ex st in
       (match error with
       | [] -> 
-        (match tp with
-        | Real -> (st, Int, code @ ["r[" ^ operand.text ^ "] = (trunc) i[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
-        | _ -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
+        (
+          print_endline ("do trunc here" ^ "int[" ^ operand.text ^ "] = (trunc) real[" ^ operand.text ^ "];");
+          match tp with
+          | Real -> (st, Int, code @ ["int[" ^ operand.text ^ "] = (trunc) read[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+          | _ -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
         )
       | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, error)
       )
@@ -1158,17 +1215,17 @@
       let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in
       let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in
       let error = error1 @ error2 in(
-        print_endline "translate_expr";
+        print_endline "do the binary operation";
         print_endline "print the error we find here";
         debug_helper error;
         print_endline "print the code here";
         debug_helper code1;
         debug_helper code2;
-        print_endline "finished translate_expr";
+        print_endline "finished binary operation";
         match error with
         | [] -> 
           if tp1 = tp2 then
-            (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+            (st, tp1, code1 @ [operator] @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
           else(
 
           (* Debug use *)
@@ -1184,8 +1241,8 @@
             );
 
             (* above is for debug *)
-            
-            (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
+
+            (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
             )
         | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
       )

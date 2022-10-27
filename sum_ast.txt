@@ -1,0 +1,13 @@
+val sum_ave_syntax_tree : ast_sl =
+  [AST_i_dec ("a", (2, 15)); AST_read ("a", (2, 15));
+   AST_i_dec ("b", (2, 27)); AST_read ("b", (2, 27));
+   AST_i_dec ("sum", (2, 34));
+   AST_assign
+    ("sum",
+     AST_binop ("+", AST_id ("a", (2, 41)), AST_id ("b", (2, 45)), (2, 43)),
+     (2, 34), (2, 38));
+   AST_write (AST_id ("sum", (3, 12)));
+   AST_write
+    (AST_binop
+      ("/", AST_float (AST_id ("sum", (3, 29)), (3, 23)),
+       AST_real ("2.0", (3, 36)), (3, 34)))]
