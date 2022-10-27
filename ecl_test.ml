@@ -1253,7 +1253,13 @@
       | [] -> 
         (
           match tp with
-        | Int -> (st, Real, code @ ["r[" ^ operand.text ^ "] = (float) " ^ operand.text], {text = operand.text; kind = Atom}, [])
+        | Int -> ( 
+          let (new_st, success) = insert_st ("(float) " ^ operand.text) Int st false in 
+          match success with
+          |true -> (new_st, Real, code @ ["r[" ^ operand.text ^ "] = (float) " ^ operand.text], {text = operand.text; kind = Atom}, [])
+          |false -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
+          
+          )
         | _ -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
         )
       | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, error)
@@ -1265,7 +1271,12 @@
         (
           print_endline ("do trunc here" ^ "int[" ^ operand.text ^ "] = (trunc) real[" ^ operand.text ^ "];");
           match tp with
-          | Real -> (st, Int, code @ ["int[" ^ operand.text ^ "] = (trunc) read[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+          | Real -> (
+            let (new_st, success) = insert_st ("(trunc) " ^ operand.text) Real st false in 
+            match success with
+            | true -> (st, Int, code @ ["int[" ^ operand.text ^ "] = (trunc) read[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+            | false -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
+            )
           | _ -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
         )
       | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, error)
@@ -1285,6 +1296,7 @@
         match error with
         | [] -> 
           if tp1 = tp2 then
+            (operand1.text ^ operator ^ operand2.text)
             (st, tp1, code1 @ [operator] @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
           else(
 
@@ -1301,7 +1313,6 @@
             );
 
             (* above is for debug *)
-
             (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
             )
         | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
