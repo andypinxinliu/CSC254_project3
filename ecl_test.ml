@@ -637,7 +637,7 @@
    | PT_nt("S", _, [PT_term("int", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
         -> [AST_i_dec(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
    | PT_nt("S", _, [PT_term("real", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
-        -> [AST_read(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
+        -> [AST_r_dec(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
    (* integrate TP in S *)
    | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, []); PT_id(lhs, vloc)])
         -> [AST_read(lhs, vloc)]
@@ -845,7 +845,8 @@
      addresses for variables.  These routines are placeholders for
      functionality that you probably want to roll into the symbol table.
  *)
- let new_mem_addr () = 0;;
+ let new_mem_addr () = 
+  
  let max_mem_addr () = 0;;
  let max_temp_addr () = 0;;
  
@@ -978,6 +979,7 @@
         debug_helper errs;
         print_endline "print the code here";
         debug_helper s_code;
+        print_newline;
         debug_helper sl_code;
         print_endline "end of translate_sl";
        if errs = [] then (st3, s_code @ sl_code, [])
@@ -994,13 +996,13 @@
     | AST_i_dec(id, loc) ->
       let (new_st, success) = insert_st id Int st in(
         print_endline ("declare the int " ^ id);
-        if success then (new_st, [id], []) 
+        if success then (new_st, ["int " ^ id ^ ";\n"], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_r_dec(id, loc) ->
       let (new_st, success) = insert_st id Real st in (
         print_endline ("declare the real " ^ id);
-        if success then (new_st, [id], []) 
+        if success then (new_st, ["float " ^ id ^ ";\n"], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_read(id, loc) -> 
@@ -1062,8 +1064,8 @@
           (new_st, [id ^ " = getint();"], [])
         )
       | Real -> (
-          print_endline (id ^ " = getint();");
-          (new_st, [id ^ " = getint();"], [])
+          print_endline (id ^ " = getreal();");
+          (new_st, [id ^ " = getreal();"], [])
           )
       | _ -> new_st, [], [error]
     )
@@ -1108,7 +1110,7 @@
    if error = "" && rhs_error = [] then
       (
         if tp = rhs_tp then
-          (new_st, [id ^ " := "] @ setup_code, [])
+          (new_st, [id ^ " := "] @ setup_code @ [";"], [])
         else
           (new_st, [], ["assign type mismatch"])
     )
@@ -1128,17 +1130,23 @@
         let st2 = new_scope new_st in
         let (st3, sl_code, sl_errs) = translate_sl sl st2 in
         let error = lhs_error @ rhs_error @ sl_errs in (
-            print_endline "translate_if";
+            (* print_endline "translate_if";
             print_endline "print the error we find here";
             debug_helper error;
             print_endline "print the code here";
             debug_helper l_code;
             debug_helper r_code;
             debug_helper sl_code;
-            print_endline "finished translate_if";
+            print_endline "finished translate_if"; *)
+            let st4 = end_scope st3 in
             match error with
-            | [] -> (st3, l_code @ r_code @ sl_code, [])
-            | _ -> (st3, [], error)
+            | [] -> (
+                if operator = "<>" then
+                  (st4, ["if ("] @ l_code @[" != "] @ r_code @ ["){"] @ sl_code @["}"], [])
+                else
+                  (st4, ["if ("] @ l_code @[" " ^ operator ^ " "] @ r_code @ ["){"] @ sl_code @["}"], [])
+                )
+            | _ -> (st4, [], error)
         )
       | _ -> raise (Failure "unexpected expression type as condition")
  
@@ -1158,26 +1166,27 @@
         let st2 = new_scope new_st in
         let (st3, sl_code, sl_errs) = translate_sl sl st2 in
         let error = lhs_error @ rhs_error @ sl_errs in
-        let rec print_error (error : string list) : string list = match error with
-        | cur :: left -> (print_string cur; print_error left)
-        | [] -> ([]) in
-        (
-          print_error error;
+        let st4 = end_scope st3 in
         match error with
-        | [] -> (st3, l_code @ r_code @ sl_code, [])
-        | _ -> (st3, [], error)
-        )
+        | [] -> (
+          if operator = "<>" then
+            (st4, ["while ("] @ l_code @[" != "] @ r_code @ ["){"] @ sl_code @["}"], [])
+          else
+            (st4, ["while ("] @ l_code @[" " ^ operator ^ " "] @ r_code @ ["){"] @ sl_code @["}"], [])
+          )
+        | _ -> (st4, [], error)
+
       | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_expr (expr:ast_e) (st:symtab)
      : symtab * tp * string list * operand * string list =
      (* new symtab, type, setup code, self, error messages *)
    match expr with
-    | AST_int(i, _)            -> (st, Int, [], {text = i; kind = Atom}, [])
+    | AST_int(i, _)            -> (st, Int, [i], {text = i; kind = Atom}, [])
    (*
      NOTICE: your code here
    *)
-    | AST_real(real, _) -> (st, Real, [], {text = real; kind = Atom}, [])
+    | AST_real(real, _) -> (st, Real, [real], {text = real; kind = Atom}, [])
     | AST_id(id, loc) -> 
       let (tp, code, error, new_st) = lookup_st id st loc in
         (
@@ -1194,7 +1203,7 @@
       | [] -> 
         (
           match tp with
-        | Int -> (st, Real, code @ ["r[" ^ operand.text ^ "] = (float) i[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+        | Int -> (st, Real, code @ ["r[" ^ operand.text ^ "] = (float) " ^ operand.text], {text = operand.text; kind = Atom}, [])
         | _ -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
         )
       | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, error)
@@ -1220,6 +1229,7 @@
         debug_helper error;
         print_endline "print the code here";
         debug_helper code1;
+        print_endline operator;
         debug_helper code2;
         print_endline "finished binary operation";
         match error with
@@ -1341,9 +1351,10 @@
  let sqrt_syntax_tree = ast_ize_prog sqrt_parse_tree;;
  
  (* NOW TESTING AST to C*)
- let sum_ave_code = translate_ast sum_ave_syntax_tree;;
-  let gcd_code = translate_ast gcd_syntax_tree;;
-  let primes_code = translate_ast primes_syntax_tree;;
+ (* let sum_ave_code = translate_ast sum_ave_syntax_tree;; *)
+(* let gcd_code = translate_ast gcd_syntax_tree;; *)
+
+  (* let primes_code = translate_ast primes_syntax_tree;; *)
   let sqrt_code = translate_ast sqrt_syntax_tree;;
 
  let main () =

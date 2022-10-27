@@ -1,13 +1,25 @@
-val sum_ave_syntax_tree : ast_sl =
+val gcd_syntax_tree : ast_sl =
   [AST_i_dec ("a", (2, 15)); AST_read ("a", (2, 15));
-   AST_i_dec ("b", (2, 27)); AST_read ("b", (2, 27));
-   AST_i_dec ("sum", (2, 34));
-   AST_assign
-    ("sum",
-     AST_binop ("+", AST_id ("a", (2, 41)), AST_id ("b", (2, 45)), (2, 43)),
-     (2, 34), (2, 38));
-   AST_write (AST_id ("sum", (3, 12)));
-   AST_write
-    (AST_binop
-      ("/", AST_float (AST_id ("sum", (3, 29)), (3, 23)),
-       AST_real ("2.0", (3, 36)), (3, 34)))]
+   AST_i_dec ("b", (3, 15)); AST_read ("b", (3, 15));
+   AST_while
+    (AST_binop ("<>", AST_id ("a", (4, 12)), AST_id ("b", (4, 17)), (4, 14)),
+     [AST_if
+       (AST_binop
+         (">", AST_id ("a", (5, 13)), AST_id ("b", (5, 17)), (5, 15)),
+        [AST_assign
+          ("a",
+           AST_binop
+            ("-", AST_id ("a", (6, 19)), AST_id ("b", (6, 23)), (6, 21)),
+           (6, 14), (6, 16))]);
+      AST_if
+       (AST_binop
+         (">", AST_id ("b", (8, 13)), AST_id ("a", (8, 17)), (8, 15)),
+        [AST_assign
+          ("b",
+           AST_binop
+            ("-", AST_id ("b", (9, 19)), AST_id ("a", (9, 23)), (9, 21)),
+           (9, 14), (9, 16))]);
+      AST_if
+       (AST_binop
+         ("==", AST_id ("a", (11, 13)), AST_id ("b", (11, 18)), (11, 15)),
+        [AST_write (AST_id ("a", (12, 20)))])])]
