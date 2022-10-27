@@ -16,6 +16,7 @@
 
  *******************************************************************)
 
+ open Float;;
  open List;;
  (* The List library includes a large collection of useful functions.
     In the provided code, I've used assoc, exists, find, fold_left, hd,
@@ -1271,112 +1272,148 @@
      Interpreter of the AST
   *******************************************************************)
 
-type memory = (bool * string * int) list
+  type value = 
+  | Integer of int
+  | Float of float
+  | Error
+
+type memory = (bool * string * value) list
 type status = Good | Bad | Done
 
-type value = 
-| Integer of int
-| Float of float
-| Error
 
-
-let rec interpret_sl (sl:ast_sl) (mem:memory) (input:string list) (output:string list)
-  : status * memory * string list * string list =
+let rec interpret_sl (sl:ast_sl) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab=
   (*                  input         output *)
   match sl with
-  | [] -> (Good, mem, input, output)
-  | h::t -> let (stat, n_mem, n_input, n_output) = interpret_s h mem input output in
+  | [] -> (Good, mem, input, output, st) (* no more statements *)
+  | h::t -> let (stat, n_mem, n_input, n_output, new_st) = interpret_s h mem input output st in
     match stat with
-    | Good -> interpret_sl t n_mem n_input n_output
-    | Done -> (Done, mem, input, output)
-    | _    -> (Bad, mem, input, output)
+    | Good -> interpret_sl t n_mem n_input n_output new_st
+    | Done -> (Done, mem, input, output, st) (* stop interpreting *)
+    | _    -> (Bad, mem, input, output, st) (* error *)
 
-and interpret_s (s:ast_s) (mem:memory) (inp:string list) (outp:string list)
-  : status * memory * string list * string list =
+and interpret_s (s:ast_s) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab =
   match s with
   | AST_error             -> raise (Failure "AST error") (* error in the AST *)
-  | AST_assign(id, expr, vloc, aloc)  -> interpret_assign id expr mem inp outp
-  | AST_i_dec(id, loc)    -> interpret_i_dec id mem inp outp
-  | AST_r_dec(id, loc)    -> interpret_r_dec id mem inp outp
-  | AST_read(id, loc)          -> interpret_read id mem inp outp
-  | AST_write(expr)       -> interpret_write expr mem inp outp
-  | AST_if(expr, sl)      -> interpret_if expr sl mem inp outp
-  | AST_while(expr, sl)            -> interpret_while sl mem inp outp
+  | AST_assign(id, expr, vloc, aloc)  -> interpret_assign id expr vloc aloc mem input output st
+  | AST_i_dec(id, loc)    -> interpret_i_dec id mem input output st
+  | AST_r_dec(id, loc)    -> interpret_r_dec id mem input output st
+  | AST_read(id, loc)          -> interpret_read id mem input output loc st
+  | AST_write(expr)       -> interpret_write expr mem input output st
+  | AST_if(expr, sl)      -> interpret_if expr sl mem input output st
+  | AST_while(expr, sl)            -> interpret_while expr sl mem input output st
   | _                     -> raise (Failure "interpret_s error")
 
-and interpret_assign (id:string) (expr:ast_e) (mem:memory) (input:string list) (output:string list)
-  : status * memory * string list * string list =
+and interpret_i_dec (id:string) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab =
+  let (new_st, success) = insert_st id Int st in(
+        print_endline ("declare the int " ^ id);
+        if success then (Good, (false, id, Integer(0))::mem, input, output, new_st) 
+        else (Bad, (false, id, Integer(0))::mem, input, output, new_st)
+      )
+
+and interpret_r_dec (id:string) (mem:memory) (input:string list) (output:string list) (st:symtab)
+: status * memory * string list * string list * symtab =
+let (new_st, success) = insert_st id Real st in(
+      print_endline ("declare the real " ^ id);
+      if success then (Good, (false, id, Float(0.0))::mem, input, output, new_st) 
+      else (Bad, (false, id, Float(0.0))::mem, input, output, new_st)
+    )
+
+
+and interpret_assign (id:string) (expr:ast_e) (vloc:row_col) (aloc:row_col) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab=
   (* drop the existed id from memory list, programmer should add back the updated mem
      if using this function *)
-  let drop_target_from_mem (target:string) : memory =
-    let rec aux target mem_list =
-      match mem_list with
-      | []                     -> []
-      | ((_, id, _) as h) :: t -> if id = target then aux target t
-                                  else h :: (aux target t)
-      in aux target mem
-  in
-  let (result, _) = interpret_expr expr mem in
-  let new_mem = drop_target_from_mem id in
-  match result with
-  | Integer(r) -> (Good, (false, id, r) :: new_mem, input, output)
-  | Float(r)   -> (Good, (true, id, r) :: new_mem, input, output) (* float is stored as int *)
-  | Error    -> (Bad, mem, input, output)
+
+  let (tp, code, error, new_st) = lookup_st id st vloc in
+  if error = "" then
+    (Bad, mem, input, output, new_st) (* error in the AST *)
+  else
+    let drop_target_from_mem (target:string) : memory =
+      let rec aux target mem_list =
+        match mem_list with
+        | []                     -> []
+        | ((_, id, _) as h) :: t -> if id = target then aux target t
+                                    else h :: (aux target t)
+        in aux target mem
+    in
+    let (result, _, new_st) = interpret_expr expr mem st in
+    let new_mem = drop_target_from_mem id in
+    match result with
+    | Integer(r) -> (Good, (false, id, Integer(r)) :: new_mem, input, output, new_st) (* update the memory *)
+    | Float(r)   -> (Good, (true, id, Float(r)) :: new_mem, input, output, new_st) (* float is stored as int *)
+    | Error    -> (Bad, mem, input, output, new_st)
 
 (* add a (id, value) pair into memory if succeed *)
-and interpret_read (id:string) (mem:memory) (input:string list) (output:string list)
-  : status * memory * string list * string list =
-  match input with
-  | []     ->
-    print_string "no input in read";
-    (Bad, mem, input, output)
-  | h :: t ->
-    (* catch non-numeric and return the right status *)
-    try let a = int_of_string h in
-      (Good, (false, id, a) :: mem, t, output)
-    with Failure _ ->
-      print_string "non-numeric input\n";
-      (Bad, mem, t, output)
+and interpret_read (id:string) (mem:memory) (input:string list) (output:string list) (loc:row_col)(st:symtab)
+  : status * memory * string list * string list * symtab =
 
-and interpret_write (expr:ast_e) (mem:memory) (input:string list) (output:string list)
-  : status * memory * string list * string list =
-  let (ret, new_mem) = interpret_expr expr mem in
-  match ret with
-  | Integer (x) -> (Good, new_mem, input, (string_of_int x)::output)
-  | Float (x)   -> (Good, new_mem, input, (string_of_float x)::output) (* float is stored as int *)
-  | Error     -> (Bad, new_mem, input, output)
+  let (tp, code, error, new_st) = lookup_st id st loc in
+  if error = "" then
+    (match input with
+    | []     ->
+      print_string "no input in read";
+      (Bad, mem, input, output, new_st) (* error in the AST *)
+    | h :: t ->
+      (* catch non-numeric and return the right status *)
+      try (
+        let a = int_of_string h in
+          (Good, (false, id, Integer(a)) :: mem, t, output, st) (* update the memory *)
+        )
+      with Failure _ ->
+        try (
+          let a = float_of_string h in
+            (Good, (true, id, Float(a)) :: mem, t, output, st) (* update the memory *)
+          )
+        with Failure _ ->
+          print_string "non-numeric input\n";
+          (Bad, mem, t, output, new_st) (* error in the AST *)
+    ) 
 
-and interpret_if (expr:ast_e) (sl:ast_sl) (mem:memory) (input:string list) (output:string list)
-  : status * memory * string list * string list =
-  let (ret, new_mem) = interpret_expr expr mem in
+    else
+      (Bad, mem, input, output, new_st)
+
+and interpret_write (expr:ast_e) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab=
+  let (ret, new_mem, new_st) = interpret_expr expr mem st in
   match ret with
-  | Integer (0) -> (Good, new_mem, input, output)
-  | Error     -> (Bad, new_mem, input, output)
-  | Integer (1)         -> interpret_sl sl new_mem input output
+  | Integer (x) -> (Good, new_mem, input, (string_of_int x)::output, new_st) (* update the memory *)
+  | Float (x)   -> (Good, new_mem, input, (string_of_float x)::output, new_st) (* float is stored as int *)
+  | Error     -> (Bad, new_mem, input, output, st)
+
+and interpret_if (expr:ast_e) (sl:ast_sl) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab=
+  let (ret, new_mem, new_st) = interpret_expr expr mem st in
+  match ret with
+  | Integer (0) -> (Good, new_mem, input, output, new_st) (* update the memory *)
+  | Error     -> (Bad, new_mem, input, output, new_st) (* error in the AST *)
+  | Integer (1)         -> interpret_sl sl new_mem input output new_st (* interpret the statement list *)
   | _                  -> raise (Failure "interpret_if error")
 
-and interpret_while (expr:ast_e)(sl:ast_sl) (mem:memory) (input:string list) (output:string list)
-  : status * memory * string list * string list =
-  let (ret, new_mem) = interpret_expr expr mem in
+and interpret_while (expr:ast_e)(sl:ast_sl) (mem:memory) (input:string list) (output:string list) (st:symtab)
+  : status * memory * string list * string list * symtab =
+  let (ret, new_mem, new_st) = interpret_expr expr mem st in
   match ret with
-  | Integer (0) -> (Good, new_mem, input, output)
-  | Error     -> (Bad, new_mem, input, output)
+  | Integer (0) -> (Good, new_mem, input, output, new_st) (* update the memory *)
+  | Error     -> (Bad, new_mem, input, output, new_st) (* error in the AST *)
   | Integer (1)         -> (
-    let (n_status, n_mem, n_input, n_output) = interpret_sl sl mem input output in
+    let (n_status, n_mem, n_input, n_output, new_st2) = interpret_sl sl mem input output new_st in
       match n_status with
-      | Good -> interpret_while expr sl n_mem n_input n_output
-      | Done -> (Good, mem ,input, output)
-      | Bad  -> (Bad, mem, input, output)
+      | Good -> interpret_while expr sl n_mem n_input n_output new_st2
+      | Done -> (Good, mem ,input, output, new_st) (* update the memory *)
+      | Bad  -> (Bad, mem, input, output, new_st) (* error in the AST *)
   )
   | _                  -> raise (Failure "interpret_while error")
 
-and interpret_expr (expr:ast_e) (mem:memory) : value * memory =
+and interpret_expr (expr:ast_e) (mem:memory) (st:symtab): value * memory * symtab =
   (* return the value of id from the memory which is an integer *)
-  let rec find_val (id:string) (mem_list:memory) : int =
+  let rec find_val (id:string) (mem_list:memory) : value =
     match mem_list with
     | [] -> raise (Failure "use of an uninitialized variable")
-    | (_, target, value) :: t ->
-      if id = target then value else find_val id t in
+    | (_, target, next_val) :: t ->
+      if id = target then next_val else find_val id t in
   (* update the used id *)
   let rec update_mem (id:string) (mem_list:memory) : memory =
     match mem_list with
@@ -1385,57 +1422,109 @@ and interpret_expr (expr:ast_e) (mem:memory) : value * memory =
       if id = target && bo = false then (true, target, value) :: (update_mem id t)
       else h :: (update_mem id t) in
   match expr with
-  | AST_int(n, _) -> (Integer (int_of_string n), mem)
-  | AST_real(n, _) -> (Float (float_of_string n), mem) (* TODO: real *)
-  | AST_id(id, loc) -> (Integer (find_val id mem), (update_mem id mem))
+  | AST_int(n, _) -> (Integer (int_of_string n), mem, st)
+  | AST_real(n, _) -> (Float (float_of_string n), mem, st) (* TODO: real *)
+  | AST_id(id, loc) -> (
+    let (tp, code, error, new_st) = lookup_st id st loc in
+    if error = "" then
+      (find_val id mem, update_mem id mem, new_st) (* update the memory *)
+    else
+      (Error, mem, new_st) (* error in the AST *)
+    )
   | AST_trunc(expr, loc) ->
-    let (ret, new_mem) = interpret_expr expr mem in
+    let (ret, new_mem, new_st) = interpret_expr expr mem st in
     (match ret with
-     | Float (x) -> (Integer (x), new_mem)
-     | Error     -> (Error, new_mem)
-     | _         -> (Error, new_mem)
+     | Float (x) -> ( to_int(x), new_mem, new_st) (* update the memory *)
+     | Error     -> (Error, new_mem, new_st) (* error in the AST *)
+     | _         -> (Error, new_mem, new_st) (* error in the AST *)
      )
   | AST_float(expr, loc) ->
-    let (ret, new_mem) = interpret_expr expr mem in
+    let (ret, new_mem, new_st) = interpret_expr expr mem st in
     (match ret with
-     | Integer (x) -> (Float (x), new_mem)
-     | Error     -> (Error, new_mem)
-     | _          -> (Error, new_mem)
+     | Integer (x) -> (float_of_int (x), new_mem, new_st) (* update the memory *)
+     | Error     -> (Error, new_mem, new_st) (* error in the AST *)
+     | _          -> (Error, new_mem, new_st) (* error in the AST *)
     )
+
   | AST_binop(op, lhs, rhs, loc) ->
     (* first match left and then right *)
-    match interpret_expr lhs mem with
-    | (Error, _)        -> (Error, mem)
-    | (Value (left), _) ->
-      match interpret_expr rhs mem with
-      | (Error, _)         -> (Error, mem)
-      | (Value (right), _) ->
+    match interpret_expr lhs mem st with
+    | (Error, _, _)        -> (Error, mem, st) (* error in the AST *)
+    | (Integer (left), _, st) ->
+      match interpret_expr rhs mem st with
+      | (Error, _, st)         -> (Error, mem, st) (* error in the AST *)
+      | (Integer (right), _, st) ->
         match op with
-        | "+" -> (Value (left + right), mem)
-        | "-" -> (Value (left - right), mem)
-        | "*" -> (Value (left * right), mem)
+        | "+" -> (Integer (left + right), mem, st) (* update the memory *)
+        | "-" -> (Integer (left - right), mem, st) (* update the memory *)
+        | "*" -> (Integer (left * right), mem, st) (* update the memory *)
         | "/" ->
           if right = 0 then begin
             print_string ("divide by zero\n");
             (Error, mem)
           end
-          else (Value (left / right), mem)
-        | ">" ->  if left >  right then (Value (1), mem) else (Value (0), mem)
-        | "<" ->  if left <  right then (Value (1), mem) else (Value (0), mem)
-        | ">=" -> if left >= right then (Value (1), mem) else (Value (0), mem)
-        | "<=" -> if left <= right then (Value (1), mem) else (Value (0), mem)
-        | "==" -> if left =  right then (Value (1), mem) else (Value (0), mem)
-        | "<>" -> if left <> right then (Value (1), mem) else (Value (0), mem)
+          else (Integer (left / right), mem)
+        | ">" ->  if left >  right then (Integer (1), mem) else (Integer (0), mem)
+        | "<" ->  if left <  right then (Integer (1), mem) else (Integer (0), mem)
+        | ">=" -> if left >= right then (Integer (1), mem) else (Integer (0), mem)
+        | "<=" -> if left <= right then (Integer (1), mem) else (Integer (0), mem)
+        | "==" -> if left =  right then (Integer (1), mem) else (Integer (0), mem)
+        | "<>" -> if left <> right then (Integer (1), mem) else (Integer (0), mem)
         | _   -> raise (Failure "interpret_expr: no such operator")
 
+    | (Float (left), _, st) ->
+      match interpret_expr rhs mem st with
+      | (Error, _, st)         -> (Error, mem, st) (* error in the AST *)
+      | (Integer (right), _, st) ->
+        (match op with
+        | "+" -> (Integer (left + right), mem, st) (* update the memory *)
+        | "-" -> (Integer (left - right), mem, st) (* update the memory *)
+        | "*" -> (Integer (left * right), mem, st) (* update the memory *)
+        | "/" ->
+          if right = 0 then begin
+            print_string ("divide by zero\n");
+            (Error, mem)
+          end
+          else (Integer (left / right), mem)
+        | ">" ->  if left >  right then (Integer (1), mem) else (Integer (0), mem)
+        | "<" ->  if left <  right then (Integer (1), mem) else (Integer (0), mem)
+        | ">=" -> if left >= right then (Integer (1), mem) else (Integer (0), mem)
+        | "<=" -> if left <= right then (Integer (1), mem) else (Integer (0), mem)
+        | "==" -> if left =  right then (Integer (1), mem) else (Integer (0), mem)
+        | "<>" -> if left <> right then (Integer (1), mem) else (Integer (0), mem)
+        | _   -> raise (Failure "interpret_expr: no such operator")
+        )
+      | (Float (right), _, st) ->
+        (match op with
+        | "+" -> (Float (left + right), mem, st) (* update the memory *)
+        | "-" -> (Float (left - right), mem, st) (* update the memory *)
+        | "*" -> (Float (left * right), mem, st) (* update the memory *)
+        | "/" ->
+          if right = 0.0 then begin
+            print_string ("divide by zero\n");
+            (Error, mem)
+          end
+          else (Float (left / right), mem) (* update the memory *)
+        | ">" ->  if left >  right then (Integer (1), mem) else (Integer (0), mem)
+        | "<" ->  if left <  right then (Integer (1), mem) else (Integer (0), mem)
+        | ">=" -> if left >= right then (Integer (1), mem) else (Integer (0), mem)
+        | "<=" -> if left <= right then (Integer (1), mem) else (Integer (0), mem)
+        | "==" -> if left =  right then (Integer (1), mem) else (Integer (0), mem)
+        | "<>" -> if left <> right then (Integer (1), mem) else (Integer (0), mem)
+        | _   -> raise (Failure "interpret_expr: no such operator")
+        )
+
   let interpret (ast:ast_sl) : string =
+    let convert_stdin str =
+      split (regexp " ") str in
     let join_strlist lst =
       let rec aux = function
         | [] -> ""
         | h :: t -> h ^ "\n" ^ aux t
       in aux (rev lst) in
-    let (_, mem, _, outp) = interpret_sl ast [] [] [] in
-    join_strlist outp;;
+    let (_, mem, _, outp, new_st) =
+      interpret_sl ast [] (convert_stdin stdin) [] (new_scope empty_symtab) in
+    join_strlist outp
 
 
  
