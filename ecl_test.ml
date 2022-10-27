@@ -802,20 +802,30 @@
    { (*
          NOTICE: extra field(s) here?
      *)
+     temp_scopes: scope_info list;
      scopes     : scope_info list
    };;
- let empty_symtab = { scopes = [] };;
+ let empty_symtab = { scopes = []; temp_scopes = [] };;
  
  (* Open a new scope, in which variable names can be reused. *)
  let new_scope (st:symtab) : symtab =
-   { scopes     = { variables = [] } :: st.scopes };;
+   { 
+    scopes     = { variables = [] } :: st.scopes;
+    temp_scopes     = { variables = [] } :: st.temp_scopes
+   };;
  
  (* Executed at end of statement list to erase variables from table. *)
  let end_scope (st:symtab) : symtab =
    let ss = match st.scopes with
             | []            -> raise (Failure "no scopes left to pop")
-            | _ :: surround -> surround in
-   { scopes     = ss }
+            | _ :: surround -> surround in (
+    let tss = match st.temp_scopes with
+    | []            -> raise (Failure "no temp scopes left to pop")
+    | _ :: surround -> surround in
+    { scopes     = ss;
+      temp_scopes     = tss
+     }
+  )
  
  (* An expression in the extended calculator language can appear
     - as an operand in a bigger expression -- arithmetic, comparison, float/trunc
@@ -845,45 +855,85 @@
      addresses for variables.  These routines are placeholders for
      functionality that you probably want to roll into the symbol table.
  *)
- let new_mem_addr () = 
-  
- let max_mem_addr () = 0;;
- let max_temp_addr () = 0;;
+ let rec new_mem_addr (st:symtab) : int = 
+  max_mem_addr (st.scopes) + max_temp_addr st.temp_scopes + 1
+
+ and max_mem_addr (sc) : int =
+  match sc with 
+  |[] -> 0
+  | curr::left -> (List.length (curr.variables) + max_mem_addr left)
+ 
+ and max_temp_addr (sc): int =
+  match sc with 
+  |[] -> 0
+  | curr::left -> (List.length (curr.variables) + max_temp_addr left)
+
  
  (* Insert id with type t and a newly chosen address into current scope
     in symbol table if not already present; return updated symtab and
     indication of success *)
- let insert_st (id:string) (t:tp) (st:symtab) : symtab * bool =
-   match st.scopes with
-   | [] -> raise (Failure "no current scope in which to insert")
-   | scope :: surround ->
-       match find_opt (name_match_st id) scope.variables with
-       | Some _ -> (st, false)
-       | None   ->
-           ({ scopes     =
-                { variables = (id, t, new_mem_addr ()) :: scope.variables }
-                :: surround },
-            true);;
+ let insert_st (id:string) (t:tp) (st:symtab) (is_atom: bool): symtab * bool =
+  match is_atom with
+  | true ->
+      (match st.scopes with
+        | [] -> raise (Failure "no current scope in which to insert")
+        | scope :: surround ->
+            (match find_opt (name_match_st id) scope.variables with
+            | Some _ -> (st, false)
+            | None   ->
+                ({
+                  scopes     =
+                      { variables = (id, t, new_mem_addr (st)) :: scope.variables }
+                      :: surround;
+                  temp_scopes = st.temp_scopes},
+                  true))
+      )
+  | false ->
+    (match st.temp_scopes with
+      | [] -> raise (Failure "no current temp scope in which to insert")
+      | temp_scope :: surround ->
+          (match find_opt (name_match_st id) temp_scope.variables with
+          | Some _ -> (st, false)
+          | None   ->
+              ({scopes = st.scopes; 
+                temp_scopes     =
+                    { variables = (id, t, new_mem_addr (st)) :: temp_scope.variables }
+                    :: surround },
+                true))
+    )
  
  (* Look id up in symbol table.  If not found, insert to limit redundant
     subsequent errors. *)
- let lookup_st (id:string) (st:symtab) (loc:row_col)
+ let lookup_st (id:string) (st:symtab) (loc:row_col) (is_atom:bool)
      : tp * string * string * symtab =
      (* type, target-code name, error msg, new symtab *)
    let rec helper scope_stack =
      match scope_stack with
-     | [] -> let (new_st, stat) = (insert_st id Unknown st) in
+     | [] -> let (new_st, stat) = (insert_st id Unknown st is_atom) in
              if stat then (Unknown, "", (complaint loc (id ^ " not found")), new_st)
                      else raise (Failure (id ^ " found but unexpected"))
      | scope :: surround ->
          match find_opt (name_match_st id) scope.variables with
          | Some (_, t, a) ->
-            (match t with
-             | Int     -> (t, ("i[" ^ Int.to_string a ^ "]"), "", st)
-             | Real    -> (t, ("r[" ^ Int.to_string a ^ "]"), "", st)
-             | Unknown -> (t, "", "", st))   (* already complained *)
+            (match is_atom with
+            | true ->
+              (match t with
+                | Int     -> (t, ("i[" ^ Int.to_string a ^ "]"), "", st)
+                | Real    -> (t, ("r[" ^ Int.to_string a ^ "]"), "", st)
+                | Unknown -> (t, "", "", st)
+              )   (* already complained *)
+            | false -> 
+              (match t with
+                | Int     -> (t, ("ti[" ^ Int.to_string a ^ "]"), "", st)
+                | Real    -> (t, ("tr[" ^ Int.to_string a ^ "]"), "", st)
+                | Unknown -> (t, "", "", st)
+              )
+            )
+            
          | None -> helper surround in
-   helper st.scopes;;
+  match is_atom with
+  | true -> helper st.scopes
+  | false -> helper st.temp_scopes;;
  
  (********
      Utility routines assumed available by translated code.
@@ -994,13 +1044,13 @@
    *)
     | AST_error -> raise (Failure "translate_s error")
     | AST_i_dec(id, loc) ->
-      let (new_st, success) = insert_st id Int st in(
+      let (new_st, success) = insert_st id Int st true in(
         print_endline ("declare the int " ^ id);
         if success then (new_st, ["int " ^ id ^ ";\n"], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_r_dec(id, loc) ->
-      let (new_st, success) = insert_st id Real st in (
+      let (new_st, success) = insert_st id Real st true in (
         print_endline ("declare the real " ^ id);
         if success then (new_st, ["float " ^ id ^ ";\n"], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
@@ -1053,7 +1103,7 @@
  and translate_read (id:string) (loc:row_col) (* of variable *) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
-   let (tp, code, error, new_st) = lookup_st id st loc in 
+   let (tp, code, error, new_st) = lookup_st id st loc true in 
    (*
      NOTICE: your code here
    *)
@@ -1105,7 +1155,7 @@
    (*
      NOTICE: your code here
    *)
-   let (tp, code, error, new_st) = lookup_st id st vloc in
+   let (tp, code, error, new_st) = lookup_st id st vloc true in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
    if error = "" && rhs_error = [] then
       (
@@ -1188,7 +1238,7 @@
    *)
     | AST_real(real, _) -> (st, Real, [real], {text = real; kind = Atom}, [])
     | AST_id(id, loc) -> 
-      let (tp, code, error, new_st) = lookup_st id st loc in
+      let (tp, code, error, new_st) = lookup_st id st loc true in
         (
           match tp with
         | Int -> (new_st, tp, [id], {text = id; kind = Atom}, [])
@@ -1263,7 +1313,7 @@
  let translate_ast (ast:ast_sl) : int * int * string * string =
                                 (* max_addr, max_temp, code, error messages *)
    let (st, sl_code, sl_errs) = translate_sl ast (new_scope empty_symtab) in
-   ( max_mem_addr (), max_temp_addr (),
+   ( max_mem_addr st.scopes, max_temp_addr st.temp_scopes,
      (fold_left (str_cat "\n ") "" sl_code),
      (fold_left (str_cat "\n ") "" sl_errs) );;
  
@@ -1351,11 +1401,11 @@
  let sqrt_syntax_tree = ast_ize_prog sqrt_parse_tree;;
  
  (* NOW TESTING AST to C*)
- (* let sum_ave_code = translate_ast sum_ave_syntax_tree;; *)
+ let sum_ave_code = translate_ast sum_ave_syntax_tree;;
 (* let gcd_code = translate_ast gcd_syntax_tree;; *)
 
   (* let primes_code = translate_ast primes_syntax_tree;; *)
-  let sqrt_code = translate_ast sqrt_syntax_tree;;
+  (* let sqrt_code = translate_ast sqrt_syntax_tree;; *)
 
  let main () =
  
