@@ -883,7 +883,7 @@
             | None   ->
                 ({
                   scopes     =
-                      { variables = (id, t, new_mem_addr (st)) :: scope.variables }
+                      { variables = (id, t, max_mem_addr(st.scopes)) :: scope.variables }
                       :: surround;
                   temp_scopes = st.temp_scopes},
                   true))
@@ -897,7 +897,7 @@
           | None   ->
               ({scopes = st.scopes; 
                 temp_scopes     =
-                    { variables = (id, t, new_mem_addr (st)) :: temp_scope.variables }
+                    { variables = (id, t, max_temp_addr (st.temp_scopes)) :: temp_scope.variables }
                     :: surround },
                 true))
     )
@@ -1046,13 +1046,13 @@
     | AST_i_dec(id, loc) ->
       let (new_st, success) = insert_st id Int st true in(
         print_endline ("declare the int " ^ id);
-        if success then (new_st, ["int " ^ id ^ ";\n"], []) 
+        if success then (new_st, [], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_r_dec(id, loc) ->
       let (new_st, success) = insert_st id Real st true in (
         print_endline ("declare the real " ^ id);
-        if success then (new_st, ["float " ^ id ^ ";\n"], []) 
+        if success then (new_st, [], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_read(id, loc) -> 
@@ -1124,7 +1124,7 @@
  and translate_write (expr:ast_e) (st:symtab)
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
-   let (new_st, tp, code, self, error) = translate_expr expr st in
+   let (new_st, tp, code, oprand, error) = translate_expr expr st in
    (*
      NOTICE: your code here
    *)
@@ -1136,13 +1136,13 @@
           print_string ("putint(");
           debug_helper code;
           print_endline (");");
-          (new_st, ["putint("] @ code @ [");"], [])
+          (new_st, ["putint(" ^ oprand.text ^ ");"], [])
         )
         | Real -> (
           print_string ("putreal(");
           debug_helper code;
           print_endline (");");
-          (new_st, ["putreal("] @ code @ [");"], [])
+          (new_st, ["putint(" ^ oprand.text ^ ");"], [])
         )
         | _ -> (new_st, [], error)
       )
@@ -1160,7 +1160,7 @@
    if error = "" && rhs_error = [] then
       (
         if tp = rhs_tp then
-          (new_st, [code ^ " := "] @ setup_code @ [";"], [])
+          (new_st, [code ^ " = " ^ oprand.text ^ ";"], [])
         else
           (new_st, [], ["assign type mismatch"])
     )
@@ -1241,12 +1241,12 @@
       let (tp, code, error, new_st) = lookup_st id st loc true in
         (
           match tp with
-        | Int -> (new_st, tp, [code], {text = id; kind = Atom}, [])
-        | Real -> (new_st, tp, [code], {text = id; kind = Atom}, [])
-        | Unknown -> (new_st, tp, [], {text = id; kind = Atom}, [error])
+        | Int -> (new_st, tp, [code], {text = code; kind = Atom}, [])
+        | Real -> (new_st, tp, [code], {text = code; kind = Atom}, [])
+        | Unknown -> (new_st, tp, [], {text = code; kind = Atom}, [error])
         )
     | AST_float(ex, loc) -> 
-      let (st, tp, code, operand, error) = translate_expr ex st in
+      let (st, tp, code1, operand, error) = translate_expr ex st in
       (
       print_endline ("do float here" ^ "r[" ^ operand.text ^ "] = (trunc) i[" ^ operand.text ^ "];");
       match error with
@@ -1257,13 +1257,13 @@
           let (new_st, success) = insert_st ("(float) " ^ operand.text) Int st false in 
           match success with
           |true -> (
-            (tp, lookup_code, error, new_st) = lookup_st id st vloc false;
-            (new_st, Real, code @ [lookup_code " = (float) " ^ code], {text = operand.text; kind = Atom}, [])
+            let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
+            (new_st, Real, code1 @ [code ^ " = (float) " ^ code], {text = "(float) " ^ operand.text; kind = Atom}, [])
             )
-          |false -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
+          |false -> (st, tp, code1, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
           
           )
-        | _ -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
+        | _ -> (st, tp, code1, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
         )
       | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, error)
       )
@@ -1277,7 +1277,7 @@
           | Real -> (
             let (new_st, success) = insert_st ("(trunc) " ^ operand.text) Real st false in 
             match success with
-            | true -> (st, Int, code @ ["int[" ^ operand.text ^ "] = (trunc) read[" ^ operand.text ^ "];"], {text = operand.text; kind = Atom}, [])
+            | true -> (st, Int, code @ ["int[" ^ operand.text ^ "] = (trunc) real[" ^ operand.text ^ "];"], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, [])
             | false -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
             )
           | _ -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
@@ -1299,8 +1299,10 @@
         match error with
         | [] -> 
           if tp1 = tp2 then
-            (operand1.text ^ operator ^ operand2.text)
-            (st, tp1, code1 @ [operator] @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+            let temp_id = (operand1.text ^ operator ^ operand2.text) in
+            let (new_st, success) = insert_st temp_id tp1 st false in
+            let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
+            (new_st, temp_tp, [temp_code ^ "="] @code1 @ [operator] @ code2, {text = (temp_code ^ " = " ^ operand1.text ^ " " ^ operator ^ " " ^ operand2.text) ; kind = Atom}, [])
           else(
 
           (* Debug use *)
@@ -1415,10 +1417,10 @@
  let sqrt_syntax_tree = ast_ize_prog sqrt_parse_tree;;
  
  (* NOW TESTING AST to C*)
- let sum_ave_code = translate_ast sum_ave_syntax_tree;;
+ (* let sum_ave_code = translate_ast sum_ave_syntax_tree;; *)
 (* let gcd_code = translate_ast gcd_syntax_tree;; *)
 
-  (* let primes_code = translate_ast primes_syntax_tree;; *)
+  let primes_code = translate_ast primes_syntax_tree;;
   (* let sqrt_code = translate_ast sqrt_syntax_tree;; *)
 
  let main () =
