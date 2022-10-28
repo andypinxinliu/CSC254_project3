@@ -1110,12 +1110,12 @@
     (
       match tp with
       | Int -> (
-        print_endline (id ^ " = getint();");
-          (new_st, [id ^ " = getint();"], [])
+        print_endline (code ^ " = getint();");
+          (new_st, [code ^ " = getint();"], [])
         )
       | Real -> (
-          print_endline (id ^ " = getreal();");
-          (new_st, [id ^ " = getreal();"], [])
+          print_endline (code ^ " = getreal();");
+          (new_st, [code ^ " = getreal();"], [])
           )
       | _ -> new_st, [], [error]
     )
@@ -1160,7 +1160,7 @@
    if error = "" && rhs_error = [] then
       (
         if tp = rhs_tp then
-          (new_st, [id ^ " := "] @ setup_code @ [";"], [])
+          (new_st, [code ^ " := "] @ setup_code @ [";"], [])
         else
           (new_st, [], ["assign type mismatch"])
     )
@@ -1241,8 +1241,8 @@
       let (tp, code, error, new_st) = lookup_st id st loc true in
         (
           match tp with
-        | Int -> (new_st, tp, [id], {text = id; kind = Atom}, [])
-        | Real -> (new_st, tp, [id], {text = id; kind = Atom}, [])
+        | Int -> (new_st, tp, [code], {text = id; kind = Atom}, [])
+        | Real -> (new_st, tp, [code], {text = id; kind = Atom}, [])
         | Unknown -> (new_st, tp, [], {text = id; kind = Atom}, [error])
         )
     | AST_float(ex, loc) -> 
@@ -1256,7 +1256,10 @@
         | Int -> ( 
           let (new_st, success) = insert_st ("(float) " ^ operand.text) Int st false in 
           match success with
-          |true -> (new_st, Real, code @ ["r[" ^ operand.text ^ "] = (float) " ^ operand.text], {text = operand.text; kind = Atom}, [])
+          |true -> (
+            (tp, lookup_code, error, new_st) = lookup_st id st vloc false;
+            (new_st, Real, code @ [lookup_code " = (float) " ^ code], {text = operand.text; kind = Atom}, [])
+            )
           |false -> (st, tp, code, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
           
           )
