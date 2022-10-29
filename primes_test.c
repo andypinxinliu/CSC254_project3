@@ -90,6 +90,7 @@ int main() {
  L7:;
  ti[2] = i[2] == 0;
  if (!ti[2]) goto L8;
+ i[1]
  putint(i[1]);
  i[0] = i[0]-1;
  L8:;

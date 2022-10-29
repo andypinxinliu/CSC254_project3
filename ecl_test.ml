@@ -1147,7 +1147,7 @@
    if error = "" && rhs_error = [] then
       (
         if tp = rhs_tp then
-          (new_st, setup_code @ [code ^ " = " ^ oprand.text ^ ";"], [])
+          (new_st, [code ^ " = " ^ oprand.text ^ ";"], [])
         else
           (new_st, [], ["assign type mismatch"])
     )
@@ -1254,7 +1254,7 @@
           match success with
           |true -> (
             let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
-            (new_st, Real, code1 @ [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Atom}, [])
+            (new_st, Real, [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Atom}, [])
             )
           |false -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
           
@@ -1274,7 +1274,7 @@
             match success with
               |true -> (
                 let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
-                (st, Int, code1 @ [code ^ " = to_int(" ^ operand.text ^ ")"], {text = code; kind = Atom}, [])
+                (st, Int, [code ^ " = to_int(" ^ operand.text ^ ")"], {text = code; kind = Atom}, [])
               )
               | false -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
             )
@@ -1299,8 +1299,8 @@
               | Real -> (st, Real, [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ")"], {text = temp_code; kind = Atom}, [])
               | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["divide type mismatch"])
               )
-            | "<>" -> (st, tp1, code1 @ code2 @ [temp_code ^ " = " ^ operand1.text ^ "!=" ^ operand2.text ^ ")"], {text = temp_code; kind = Atom}, [])
-            | _ -> (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+            | "<>" -> (st, tp1, [temp_code ^ " = " ^ operand1.text ^ "!=" ^ operand2.text ^ ")"], {text = temp_code; kind = Atom}, [])
+            | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
           else(
             (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
             )
