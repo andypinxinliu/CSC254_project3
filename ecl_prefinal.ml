@@ -823,15 +823,6 @@
     max_mem    = st.max_mem;
     max_temp   = st.max_temp;
    };;
-
-  let add_layer (st:symtab) : symtab =
-   { 
-    scopes     = st.scopes;
-    temp_scopes     = st.temp_scopes;
-    layer      = st.layer + 1;
-    max_mem    = st.max_mem;
-    max_temp   = st.max_temp;
-   };;
  
  (* Executed at end of statement list to erase variables from table. *)
  let end_scope (st:symtab) : symtab =
@@ -909,7 +900,7 @@
                       :: surround;
                   temp_scopes = st.temp_scopes;
                   layer      = st.layer;
-                  max_mem    = if st.max_mem < new_mem_addr(st.scopes) then new_mem_addr(st.scopes) else st.max_mem;
+                  max_mem    = st.max_mem + 1;
                   max_temp   = st.max_temp;},
                   true))
       )
@@ -926,7 +917,7 @@
                     :: surround;
                     layer      = st.layer;
                     max_mem    = st.max_mem;
-                    max_temp   = if st.max_temp < new_temp_addr(st.temp_scopes) then new_temp_addr(st.temp_scopes) else st.max_temp;},
+                    max_temp   = st.max_temp + 1;},
                 true))
     )
  
@@ -1033,6 +1024,11 @@
      Actual translator.
  ********)
 
+ let rec debug_helper (str_list:string list) : string  =
+  match str_list with
+  | [] -> (print_endline ""; "")
+  | s :: rest -> (print_string (s ^ " "); debug_helper rest)
+
  
  (* Like most of the translate_X routines, translate_sl accumulates code
     and error messages into string lists.  We stitch these together with
@@ -1047,6 +1043,14 @@
        let (st3, sl_code, sl_errs) = translate_sl rest st2 in
        let errs = s_errs @ sl_errs in
        (
+        print_endline "translate_sl";
+        print_endline "print the error here";
+        debug_helper errs;
+        print_endline "print the code here";
+        debug_helper s_code;
+        print_newline;
+        debug_helper sl_code;
+        print_endline "end of translate_sl";
        if errs = [] then (st3, s_code @ sl_code, [])
        else (st3, [], errs)
        )
@@ -1060,40 +1064,60 @@
     | AST_error -> raise (Failure "translate_s error")
     | AST_i_dec(id, loc) ->
       let (new_st, success) = insert_st id Int st true in(
+        print_endline ("declare the int " ^ id);
         if success then (new_st, [], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_r_dec(id, loc) ->
       let (new_st, success) = insert_st id Real st true in (
+        print_endline ("declare the real " ^ id);
         if success then (new_st, [], []) 
         else (new_st, [], [id ^ " cannot be redeclared here"])
       )
     | AST_read(id, loc) -> 
       let (new_st, code, error) = translate_read id loc st in(
+        print_endline ("read the " ^ id);
         (new_st, code, error)
       )
     | AST_write(expr) ->
       let (new_st, code, error) = translate_write expr st in(
+        print_endline "write";
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of write";
         match error with
         | [] -> (new_st, code, [])
         | _ -> (new_st, [], error)
       )
     | AST_assign(id, expr, vloc, aloc) ->
       let (new_st, code, error) = translate_assign id expr vloc aloc st in(
+        print_endline ("assign the " ^ id);
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of assign";
         match error with
         | [] -> (new_st, code, [])
         | _ -> (new_st, [], error)
       )
     | AST_if(expr, sl) ->
       let (new_st, code, error) = translate_if expr sl st in(
+        print_endline "if";
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of if";
         match error with
         | [] -> (new_st, code, [])
         | _ -> (new_st, [], error)
       )
     | AST_while(expr, sl) ->
       let (new_st, code, error) = translate_while expr sl st in(
+        print_endline "while";
+        debug_helper code;
+        debug_helper error;
+        print_endline "end of while";
         (new_st, code, error)
       )
+    | _ -> st, [], []
  
  and translate_read (id:string) (loc:row_col) (* of variable *) (st:symtab)
      : symtab * string list * string list =
@@ -1105,9 +1129,11 @@
     (
       match tp with
       | Int -> (
+        print_endline (code ^ " = getint();");
           (new_st, [code ^ " = getint();"], [])
         )
       | Real -> (
+          print_endline (code ^ " = getreal();");
           (new_st, [code ^ " = getreal();"], [])
           )
       | _ -> new_st, [], [error]
@@ -1126,9 +1152,15 @@
     | [] -> (
         match tp with
         | Int -> (
+          print_string ("putint(");
+          debug_helper code;
+          print_endline (");");
           (new_st, ["putint(" ^ oprand.text ^ ");"], [])
         )
         | Real -> (
+          print_string ("putreal(");
+          debug_helper code;
+          print_endline (");");
           (new_st, ["putint(" ^ oprand.text ^ ");"], [])
         )
         | _ -> (new_st, [], error)
@@ -1164,28 +1196,22 @@
       *)
         let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
         let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
+        let new_st = new_scope st in
         if lhs_tp = rhs_tp then
           let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
-          let (st, success) = insert_st temp_id lhs_tp st false in
-          let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
-          let new_st = new_scope st in
+          let (new_st, success) = insert_st temp_id lhs_tp new_st false in
+          let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
           let (st3, sl_code, sl_errs) = translate_sl sl new_st in
           let st4 = end_scope st3 in
           let error = lhs_error @ rhs_error @ sl_errs in (
               match error with
               | [] -> (
-                match operator with
-                | "<>" -> (
-                  (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
-                  )
-                | _ -> (
                   (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                   )
-                )
               | _ -> (st4, [], error)
           )
         else
-          (st, [], ["if type mismatch"])
+          (new_st, [], ["if type mismatch"])
       | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_while (c:ast_e) (sl:ast_sl) (st:symtab)
@@ -1208,17 +1234,11 @@
           let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
           let (st3, sl_code, sl_errs) = translate_sl sl new_st in
           let error = lhs_error @ rhs_error @ sl_errs in
-          let st4 = add_layer (end_scope st3) in
+          let st4 = end_scope st3 in
           match error with
           | [] -> (
-            match operator with
-            | "<>" -> (
               (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
               )
-            | _ -> (
-              (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
-              )
-            )
           | _ -> (st4, [], error)
         else
           (new_st, [], ["while type mismatch"])
@@ -1245,6 +1265,7 @@
     | AST_float(ex, loc) -> 
       let (st, tp, code1, operand, error) = translate_expr ex st in
       (
+      print_endline ("do float here" ^ "r[" ^ operand.text ^ "] = (trunc) i[" ^ operand.text ^ "];");
       match error with
       | [] -> 
         (
@@ -1254,12 +1275,12 @@
           match success with
           |true -> (
             let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
-            (new_st, Real, [code ^ " = to_real(" ^ operand.text ^ ");"], {text = "to_real(" ^ operand.text ^ ")"; kind = Atom}, [])
+            (new_st, Real, code1 @ [code ^ " = (float) " ^ code], {text = "(float) " ^ operand.text; kind = Atom}, [])
             )
-          |false -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
+          |false -> (st, tp, code1, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
           
           )
-        | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
+        | _ -> (st, tp, code1, {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
         )
       | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, error)
       )
@@ -1268,17 +1289,15 @@
       (match error with
       | [] -> 
         (
+          print_endline ("do trunc here" ^ "int[" ^ operand.text ^ "] = (trunc) real[" ^ operand.text ^ "];");
           match tp with
           | Real -> (
             let (new_st, success) = insert_st ("(trunc) " ^ operand.text) Real st false in 
             match success with
-              |true -> (
-                let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
-                (st, Int, [code ^ "to_int(" ^ operand.text ^ ")"], {text = "to_int(" ^ operand.text ^ ")"; kind = Atom}, [])
-              )
-              | false -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
+            | true -> (st, Int, code @ ["int[" ^ operand.text ^ "] = (trunc) real[" ^ operand.text ^ "];"], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, [])
+            | false -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
             )
-          | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
+          | _ -> (st, tp, code, {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
         )
       | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, error)
       )
@@ -1286,26 +1305,41 @@
       let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in
       let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in
       let error = error1 @ error2 in(
+        print_endline "do the binary operation";
+        print_endline "print the error we find here";
+        debug_helper error;
+        print_endline "print the code here";
+        debug_helper code1;
+        print_endline operator;
+        debug_helper code2;
+        print_endline "finished binary operation";
         match error with
         | [] -> 
           if tp1 = tp2 then
-            (* let temp_id = (operand1.text ^ operator ^ operand2.text) in
+            let temp_id = (operand1.text ^ operator ^ operand2.text) in
             let (new_st, success) = insert_st temp_id tp1 st false in
-            let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in *)
-            match operator with
-            | "/" -> 
-              (match tp1 with
-              | Int -> (st, Real, code1 @ [operator] @ code2, {text = "divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ")"; kind = Atom}, [])
-              | Real -> (st, Real, code1 @ [operator] @ code2, {text = "divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ")"; kind = Atom}, [])
-              | _ -> (st, tp1, code1 @ [operator] @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["divide type mismatch"])
-              )
-            | "<>" -> (st, tp1, code1 @ [operator] @ code2, {text = operand1.text ^ "!=" ^ operand2.text; kind = Atom}, [])
-            | _ -> (st, tp1, code1 @ code2, {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+            let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
+            (new_st, temp_tp, [temp_code ^ "="] @code1 @ [operator] @ code2, {text = (temp_code ^ " = " ^ operand1.text ^ " " ^ operator ^ " " ^ operand2.text) ; kind = Atom}, [])
           else(
+
+          (* Debug use *)
+            (match tp1 with
+            | Int -> print_string "int";
+            | Real -> print_string "real";
+            | _ -> print_string "unknown";
+            );
+            (match tp2 with
+            | Int -> print_string "int";
+            | Real -> print_string "real";
+            | _ -> print_string "unknown";
+            );
+
+            (* above is for debug *)
             (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
             )
         | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
       )
+    | _ -> (st, Unknown, [], {text = ""; kind = Atom}, [])
  
  (* Perform static checks on AST.  Return output code and error messages as
     glued-together strings.  Empty error string means tree was error free. *)
