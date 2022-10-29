@@ -58,7 +58,7 @@ int64_t to_int(double x) {return (int64_t) x;}
 
 int main() {
  int64_t i[7]; double *r = (double *) i;
- int64_t ti[4]; double *tr = (double *) ti;
+ int64_t ti[8]; double *tr = (double *) ti;
 
  i[0] = getint();
  i[1] = 2;
@@ -69,15 +69,15 @@ int main() {
  i[3] = 2;
  i[4] = i[3]*i[3];
  L2:
- ti[1] = i[4] <= i[1];
- if (!ti[1]) goto L7;
+ ti[2] = i[4] <= i[1];
+ if (!ti[2]) goto L7;
  i[5] = 2;
  i[6] = i[3]*i[5];
  L3:
- ti[2] = i[6] <= i[1];
- if (!ti[2]) goto L6;
- ti[3] = i[6] == i[1];
- if (!ti[3]) goto L5;
+ ti[4] = i[6] <= i[1];
+ if (!ti[4]) goto L6;
+ ti[5] = i[6] == i[1];
+ if (!ti[5]) goto L5;
  i[2] = 1;
  L5:;
  i[5] = i[5]+1;
@@ -88,8 +88,8 @@ int main() {
  i[4] = i[3]*i[3];
  goto L2;
  L7:;
- ti[1] = i[2] == 0;
- if (!ti[1]) goto L8;
+ ti[2] = i[2] == 0;
+ if (!ti[2]) goto L8;
  putint(i[1]);
  i[0] = i[0]-1;
  L8:;

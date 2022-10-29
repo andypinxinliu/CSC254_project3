@@ -63,7 +63,7 @@ int main() {
  i[0] = getint();
  i[1] = getint();
  L1:
- ti[0] = i[0] <> i[1];
+ ti[0] = i[0] != i[1];
  if (!ti[0]) goto L6;
  ti[1] = i[0] > i[1];
  if (!ti[1]) goto L3;

@@ -58,11 +58,15 @@ int64_t to_int(double x) {return (int64_t) x;}
 
 int main() {
  int64_t i[3]; double *r = (double *) i;
- int64_t ti[1]; double *tr = (double *) ti;
+ int64_t ti[3]; double *tr = (double *) ti;
 
  i[0] = getint();
  i[1] = getint();
+ i[0]
+ i[1]
  i[2] = i[0]+i[1];
+ i[2]
  putint(i[2]);
- putint(divide_real(to_real(i[2]);, 2.0));
+ tr[2] = divide_real(, 2.0)
+ putreal(tr[2]);
 }
