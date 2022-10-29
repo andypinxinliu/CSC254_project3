@@ -1118,6 +1118,7 @@
      : symtab * string list * string list =
      (* new symtab, code, error messages *)
    let (new_st, tp, code, oprand, error) = translate_expr expr st in
+   let is_atom = oprand.kind in
    (*
      NOTICE: your code here
    *)
@@ -1126,10 +1127,15 @@
     | [] -> (
         match tp with
         | Int -> (
-          (new_st, code @ ["putint(" ^ oprand.text ^ ");"], [])
+          match is_atom with
+          | Atom -> (new_st, ["putint(" ^ oprand.text ^ ");"], [])
+          | _ -> (new_st, code @ ["putint(" ^ oprand.text ^ ");"], [])
+          
         )
         | Real -> (
-          (new_st, code @ ["putreal(" ^ oprand.text ^ ");"], [])
+          match is_atom with
+          | Atom -> (new_st, ["putreal(" ^ oprand.text ^ ");"], [])
+          | _ -> (new_st, code @ ["putreal(" ^ oprand.text ^ ");"], [])
         )
         | _ -> (new_st, [], error)
       )
@@ -1144,10 +1150,13 @@
    *)
    let (tp, code, error, new_st) = lookup_st id st vloc true in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
+   let is_atom = oprand.kind in
    if error = "" && rhs_error = [] then
       (
         if tp = rhs_tp then
-          (new_st, [code ^ " = " ^ oprand.text ^ ";"], [])
+          match is_atom with
+          | Atom -> (new_st, [code ^ " = " ^ oprand.text ^ ";"], [])
+          | _ -> (new_st, setup_code @ [code ^ " = " ^ oprand.text ^ ";"], [])
         else
           (new_st, [], ["assign type mismatch"])
     )
@@ -1165,6 +1174,8 @@
         let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
         let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
         if lhs_tp = rhs_tp then
+          let is_atom1 = oprand1.kind in
+          let is_atom2 = oprand2.kind in
           let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
           let (st, success) = insert_st temp_id lhs_tp st false in
           let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
@@ -1176,13 +1187,49 @@
               | [] -> (
                 match operator with
                 | "<>" -> (
-                  (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                  match is_atom1 with
+                  | Atom -> (
+                    match is_atom2 with
+                    | Atom -> (
+                      (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
+                    | _ -> (
+                      (st4, r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
                   )
+                  | _ -> (
+                    match is_atom2 with
+                    | Atom -> (
+                      (st4, l_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
+                    | _ -> (
+                      (st4, l_code @ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
+                  )
+                 )
                 | _ -> (
-                  (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                  match is_atom1 with
+                  | Atom -> (
+                    match is_atom2 with
+                    | Atom -> (
+                      (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
+                    | _ -> (
+                      (st4, r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
+                  )
+                  | _ -> (
+                    match is_atom2 with
+                    | Atom -> (
+                      (st4, l_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
+                    | _ -> (
+                      (st4, l_code @ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    )
                   )
                 )
-              | _ -> (st4, [], error)
+            )
+            | _ -> (st4, [], error)
           )
         else
           (st, [], ["if type mismatch"])
@@ -1249,12 +1296,15 @@
       | [] -> 
         (
           match tp with
-        | Int -> ( 
-          let (new_st, success) = insert_st ("(float) " ^ operand.text) Int st false in 
+        | Int -> (
+          let is_atom = operand.kind in
+          let (new_st, success) = insert_st ("(float) " ^ operand.text) Int st false in
           match success with
           |true -> (
-            let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
-            (new_st, Real, [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Atom}, [])
+            let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) new_st (0,0) false in
+            match is_atom with
+            | Atom -> (new_st, Real, [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
+            | _ -> (new_st, Real, code1 @ [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
             )
           |false -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
           
@@ -1271,10 +1321,13 @@
           match tp with
           | Real -> (
             let (new_st, success) = insert_st ("(trunc) " ^ operand.text) Real st false in 
+            let is_atom = operand.kind in
             match success with
               |true -> (
-                let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) st (0,0) false in
-                (st, Int, [code ^ " = to_int(" ^ operand.text ^ ")"], {text = code; kind = Atom}, [])
+                let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) new_st (0,0) false in
+                match is_atom with
+                | Atom -> (new_st, Int, [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
+                | _ -> (new_st, Int, code1 @ [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
               )
               | false -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
             )
@@ -1292,15 +1345,65 @@
             let temp_id = (operand1.text ^ operator ^ operand2.text) in
             let (st, success) = insert_st temp_id tp1 st false in
             let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
+            let is_atom1 = operand1.kind in
+            let is_atom2 = operand2.kind in
             match operator with
             | "/" -> 
               (match tp1 with
-              | Int -> (st, Real, [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ")"], {text = temp_code; kind = Atom}, [])
-              | Real -> (st, Real, [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ")"], {text = temp_code; kind = Atom}, [])
+              | Int -> (
+                match is_atom1 with 
+                | Atom -> (
+                  match is_atom2 with
+                  | Atom -> (st, Int, [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  | _ -> (st, tp1, code2 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  )
+                | _ -> (
+                  match is_atom2 with
+                  | Atom -> (st, tp1, code1 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  )
+              )
+              | Real -> (
+                match is_atom1 with 
+                | Atom -> (
+                  match is_atom2 with
+                  | Atom -> (st, Real, [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  | _ -> (st, tp1, code2 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  )
+                | _ -> (
+                  match is_atom2 with
+                  | Atom -> (st, tp1, code1 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  )
+              )
               | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["divide type mismatch"])
               )
-            | "<>" -> (st, tp1, [temp_code ^ " = " ^ operand1.text ^ "!=" ^ operand2.text ^ ")"], {text = temp_code; kind = Atom}, [])
-            | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, [])
+            | "<>" -> (
+              match is_atom1 with
+              | Atom -> (
+                match is_atom2 with
+                | Atom -> (st, tp1, [temp_code ^ "=" ^  operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                | _ -> (st, tp1, code2 @ [temp_code ^ "=" ^  operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                )
+              | _ -> (
+                match is_atom2 with
+                | Atom -> (st, tp1, code1 @ [temp_code ^ "=" ^ operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ "=" ^ operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                )
+            )
+            | _ -> (
+              match is_atom1 with
+              | Atom -> (
+                match is_atom2 with
+                | Atom -> (st, tp1, [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                | _ -> (st, tp1, code2 @ [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                )
+              | _ -> (
+                match is_atom2 with
+                | Atom -> (st, tp1, code1 @ [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
+                )
+            )
           else(
             (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
             )
@@ -1400,10 +1503,10 @@
  let sqrt_syntax_tree = ast_ize_prog sqrt_parse_tree;;
  
  (* NOW TESTING AST to C*)
- (* let sum_ave_code = translate_ast sum_ave_syntax_tree;; *)
+ let sum_ave_code = translate_ast sum_ave_syntax_tree;;
 (* let gcd_code = translate_ast gcd_syntax_tree;; *)
 
-  let primes_code = translate_ast primes_syntax_tree;;
+  (* let primes_code = translate_ast primes_syntax_tree;; *)
   (* let sqrt_code = translate_ast sqrt_syntax_tree;; *)
 
  let main () =
