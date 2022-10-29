@@ -57,51 +57,52 @@ double to_real(int64_t n) {return (double) n;}
 int64_t to_int(double x) {return (int64_t) x;}
 
 int main() {
- int64_t i[7]; double *r = (double *) i;
- int64_t ti[8]; double *tr = (double *) ti;
+ int64_t i[2]; double *r = (double *) i;
+ int64_t ti[4]; double *tr = (double *) ti;
 
  i[0] = getint();
- i[1] = 2;
+ i[1] = getint();
  L1:
- ti[0] = i[0] > 0;
- if (!ti[0]) goto L9;
- i[2] = 0;
- i[3] = 2;
- ti[1]=i[3]*i[3];
- i[4] = ti[1];
- L2:
- ti[2] = i[4] <= i[1];
- if (!ti[2]) goto L7;
- i[5] = 2;
- ti[3]=i[3]*i[5];
- i[6] = ti[3];
- L3:
- ti[4] = i[6] <= i[1];
- if (!ti[4]) goto L6;
- ti[5] = i[6] == i[1];
- if (!ti[5]) goto L5;
- i[2] = 1;
- L5:;
- ti[6]=i[5]+1;
- i[5] = ti[6];
- ti[7]=i[3]*i[5];
- i[6] = ti[7];
- goto L3;
- L6:;
- ti[4]=i[3]+1;
- i[3] = ti[4];
- ti[5]=i[3]*i[3];
- i[4] = ti[5];
- goto L2;
- L7:;
- ti[2] = i[2] == 0;
- if (!ti[2]) goto L8;
- putint(i[1]);
- ti[3]=i[0]-1;
- i[0] = ti[3];
- L8:;
- ti[3]=i[1]+1;
+ ti[0] = i[0] != i[1];
+ if (!ti[0]) goto L6;
+ ti[1] = i[0] > i[1];
+ if (!ti[1]) goto L3;
+ ti[2]=i[0]-i[1];
+ i[0] = ti[2];
+ L3:;
+ ti[2] = i[1] > i[0];
+ if (!ti[2]) goto L4;
+ ti[3]=i[1]-i[0];
  i[1] = ti[3];
+ L4:;
+ ti[3] = i[0] == i[1];
+ if (!ti[3]) goto L5;
+ putint(i[0]);
+ L5:;
  goto L1;
+ L6:;
+ L6:
+ ti[0] = i[0] < i[1];
+ if (!ti[0]) goto L11;
+ ti[1] = i[0] > i[1];
+ if (!ti[1]) goto L8;
+ ti[2]=i[0]-i[1];
+ i[0] = ti[2];
+ L8:;
+ ti[2] = i[1] > i[0];
+ if (!ti[2]) goto L9;
+ ti[3]=i[1]-i[0];
+ i[1] = ti[3];
  L9:;
+ ti[3] = i[0] == i[1];
+ if (!ti[3]) goto L10;
+ putint(i[0]);
+ L10:;
+ goto L6;
+ L11:;
+ ti[0] = i[0] > i[1];
+ if (!ti[0]) goto L12;
+ ti[1]=i[0]-i[1];
+ i[0] = ti[1];
+ L12:;
 }
