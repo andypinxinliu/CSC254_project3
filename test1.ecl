@@ -21,6 +21,7 @@ read int n;
                              if found == 5 then
                                     found := found - 1 ;
                              end ;
+                             found := found + 1 ;
                          end ;
                      end ;
 

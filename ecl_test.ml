@@ -819,7 +819,7 @@
    { 
     scopes     = { variables = [] } :: st.scopes;
     temp_scopes     = { variables = [] } :: st.temp_scopes;
-    layer      = st.layer + 1;
+    layer      = st.layer;
     max_mem    = st.max_mem;
     max_temp   = st.max_temp;
    };;
@@ -1171,6 +1171,7 @@
       (*
         NOTICE: your code here
       *)
+        let st = add_layer st in
         let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
         let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
         let is_atom1 = oprand1.kind in
@@ -1180,7 +1181,7 @@
         let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
         let new_st = new_scope st in
         let (st3, sl_code, sl_errs) = translate_sl sl new_st in
-        let st4 = end_scope st3 in
+        let st4 = add_layer (end_scope st3) in
         let error = lhs_error @ rhs_error @ sl_errs in
         if lhs_tp = rhs_tp then (
               match error with
@@ -1246,6 +1247,7 @@
       (*
         NOTICE: your code here
       *)
+        let st = add_layer st in
         let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
         let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
         let is_atom1 = oprand1.kind in
