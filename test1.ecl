@@ -4,7 +4,7 @@ read int n;
          int found := 0 ;
          int cf1 := 2 ;
          int cf1s := cf1 * cf1 ;
-         while cf1s <= cp do
+         while cf1s <= trunc(float(cp)) + trunc(float(0)) do
              int cf2 := 2 ;
              int pr := cf1 * cf2 ;
              while pr <= cp do

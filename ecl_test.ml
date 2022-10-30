@@ -634,83 +634,83 @@
    (*
      NOTICE: your code here
    *)
-   | PT_nt("S", _, [PT_term("int", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
+   | PT_nt("S", _, [PT_term("int", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr]) (* if we see the PT_nt with S node, we know it is a statement, if there is intger and assign, then we need it will be AST_assign*)
         -> [AST_i_dec(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
-   | PT_nt("S", _, [PT_term("real", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr])
+   | PT_nt("S", _, [PT_term("real", _); PT_id(lhs, vloc); PT_term(":=", aloc); expr]) (* if we see the PT_nt with S node, we know it is a statement, if there is real and assign, then we need it will be AST_assign*)
         -> [AST_r_dec(lhs, vloc); AST_assign(lhs, (ast_ize_expr expr), vloc, aloc)]
    (* integrate TP in S *)
-   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, []); PT_id(lhs, vloc)])
+   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, []); PT_id(lhs, vloc)]) (* if we see the PT_nt with S node, we know it is a statement, if there is read and TP, then we need it will be AST_read*)
         -> [AST_read(lhs, vloc)]
-   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, [PT_term("int", _)]); PT_id(lhs, vloc)])
+   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, [PT_term("int", _)]); PT_id(lhs, vloc)]) (* if we see the PT_nt with S node, we know it is a statement, if there is read and TP, then we need it will be AST_read*)
         -> [AST_i_dec(lhs, vloc); AST_read(lhs, vloc)]
-   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, [PT_term("real", _)]); PT_id(lhs, vloc)])
+   | PT_nt("S", _, [PT_term("read", _); PT_nt("TP", _, [PT_term("real", _)]); PT_id(lhs, vloc)]) (* if we see the PT_nt with S node, we know it is a statement, if there is read and TP, then we need it will be AST_read*)
         -> [AST_r_dec(lhs, vloc); AST_read(lhs, vloc)]
-   | PT_nt("S", _, [PT_term("write", _); expr])
+   | PT_nt("S", _, [PT_term("write", _); expr]) (* if we see the PT_nt with S node, we know it is a statement, if there is write and expr, then we need it will be AST_write*)
         -> [AST_write(ast_ize_expr expr)]
-   | PT_nt("S", _, [PT_term("if", _); cond_stmt; PT_term("then", _); stmt_list; PT_term("end", _)])
+   | PT_nt("S", _, [PT_term("if", _); cond_stmt; PT_term("then", _); stmt_list; PT_term("end", _)]) (* if we see the PT_nt with S node, we know it is a statement, if there is if, cond_stmt, then, stmt_list, end, then we need it will be AST_if*)
         -> [AST_if(ast_ize_cond cond_stmt, ast_ize_stmt_list stmt_list)]
-   | PT_nt("S", _, [PT_term("while", _); cond_stmt; PT_term("do", _); stmt_list; PT_term("end", _)])
+   | PT_nt("S", _, [PT_term("while", _); cond_stmt; PT_term("do", _); stmt_list; PT_term("end", _)]) (* if we see the PT_nt with S node, we know it is a statement, if there is while, cond_stmt, do, stmt_list, end, then we need it will be AST_while*)
         -> [AST_while(ast_ize_cond cond_stmt, ast_ize_stmt_list stmt_list)]
-   | _ -> raise (Failure "malformed parse tree in ast_ize_stmt")
+   | _ -> raise (Failure "malformed parse tree in ast_ize_stmt") (* if there is not any of the above, then we need to raise an error*)
  
  and ast_ize_expr (e:parse_tree) : ast_e =   (* E, T, or F *)
    match e with
    (*
      NOTICE: your code here
    *)
-  | PT_nt ("E", _, [term; term_tail]) 
+  | PT_nt ("E", _, [term; term_tail]) (* if we see PT_nt with E parse tree, then wee add an AST expression node*)
         -> ast_ize_expr_tail (ast_ize_expr term) term_tail
-  | PT_nt ("T", _, [fact; fact_tail])
+  | PT_nt ("T", _, [fact; fact_tail]) (* if we see PT_nt with T parse tree, then wee add an AST expression node*)
         -> ast_ize_expr_tail (ast_ize_expr fact) fact_tail
-  | PT_nt ("F", _, [PT_id(lhs, vloc)]) 
+  | PT_nt ("F", _, [PT_id(lhs, vloc)])  (* if we see PT_nt with F parse tree, and with PT_id inside, then wee add an AST_id node*)
         -> AST_id (lhs, vloc)
-  | PT_nt ("F", _, [PT_int(fact, vloc)])
+  | PT_nt ("F", _, [PT_int(fact, vloc)]) (* if we see PT_nt with F parse tree, and with PT_int inside, then wee add an AST_int node*)
         -> AST_int(fact, vloc)
-  | PT_nt ("F", _, [PT_real(fact, vloc)])
+  | PT_nt ("F", _, [PT_real(fact, vloc)]) (* if we see PT_nt with F parse tree, and with PT_real inside, then wee add an AST_real node*)
         -> AST_real (fact, vloc)
-  | PT_nt ("F", _, [PT_term("(", _); expr; PT_term(")", _)]) 
+  | PT_nt ("F", _, [PT_term("(", _); expr; PT_term(")", _)])  (* if we see PT_nt with F parse tree, and with PT_term inside, then wee add an AST_float node*)
         -> ast_ize_expr expr
-  | PT_nt ("F", _, [PT_term("trunc", vloc); PT_term("(", _); expr; PT_term(")", _)]) 
+  | PT_nt ("F", _, [PT_term("trunc", vloc); PT_term("(", _); expr; PT_term(")", _)])  (* if we see PT_nt with F parse tree, and with PT_term inside, then wee add an AST_trunc node*)
         -> AST_trunc(ast_ize_expr expr, vloc)
-  | PT_nt ("F", _, [PT_term("float", vloc); PT_term("(", _); expr; PT_term(")", _)]) 
+  | PT_nt ("F", _, [PT_term("float", vloc); PT_term("(", _); expr; PT_term(")", _)])  (* if we see PT_nt with F parse tree, and with PT_term inside, then wee add an AST_float node*)
         -> AST_float(ast_ize_expr expr, vloc)
-  | _ -> raise (Failure "malformed parse tree in ast_ize_expr")
+  | _ -> raise (Failure "malformed parse tree in ast_ize_expr") (* if we see anything else, then we raise an exception*)
  
  and ast_ize_expr_tail (lhs:ast_e) (tail:parse_tree) : ast_e =   (* TT or FT *)
    match tail with
    (*
      NOTICE: your code here
    *) 
-    | PT_nt ("TT", _, [PT_nt("AO", _, [PT_term("+", vloc)]); term; term_tail])
+    | PT_nt ("TT", _, [PT_nt("AO", _, [PT_term("+", vloc)]); term; term_tail]) (* if we match a PT_nt, with TT inside, and contains +, then we add an AST expression node*)
           -> ast_ize_expr_tail (AST_binop("+", lhs, ast_ize_expr term, vloc)) term_tail
-    | PT_nt ("TT", _, [PT_nt("AO", _, [PT_term("-", vloc)]); term; term_tail])
+    | PT_nt ("TT", _, [PT_nt("AO", _, [PT_term("-", vloc)]); term; term_tail]) (* if we match a PT_nt, with TT inside, and contains -, then we add an AST expression node*)
           -> ast_ize_expr_tail (AST_binop("-", lhs, ast_ize_expr term, vloc)) term_tail
-    | PT_nt ("TT", _, [])
+    | PT_nt ("TT", _, []) (* if we match a PT_nt, with TT inside, and contains nothing, then we return the lhs*)
           -> lhs
-    | PT_nt ("FT", _, [PT_nt("MO", _, [PT_term("*", vloc)]); fact; fact_tail])
+    | PT_nt ("FT", _, [PT_nt("MO", _, [PT_term("*", vloc)]); fact; fact_tail]) (* if we match a PT_nt, with FT inside, and contains *, then we add an AST expression node*)
           -> ast_ize_expr_tail (AST_binop("*", lhs, ast_ize_expr fact, vloc)) fact_tail
-    | PT_nt ("FT", _, [PT_nt("MO", _, [PT_term("/", vloc)]); fact; fact_tail])
+    | PT_nt ("FT", _, [PT_nt("MO", _, [PT_term("/", vloc)]); fact; fact_tail]) (* if we match a PT_nt, with FT inside, and contains /, then we add an AST expression node*)
           -> ast_ize_expr_tail (AST_binop("/", lhs, ast_ize_expr fact, vloc)) fact_tail
-    | PT_nt ("FT", _, [])
+    | PT_nt ("FT", _, []) (* if we match a PT_nt, with FT inside, and contains nothing, then we return the lhs*)
           -> lhs
-    | _ -> raise (Failure "malformed parse tree in ast_ize_expr_tail")
+    | _ -> raise (Failure "malformed parse tree in ast_ize_expr_tail") (* if we match anything else, then we raise an exception*)
  
  and ast_ize_cond (c:parse_tree) : ast_e =
    match c with
    (*
      NOTICE: your code here
    *)
-   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("<", vloc)]); rhs])
+   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("<", vloc)]); rhs]) (* if there is a "<", then you need to generate AST binary operation*)
       -> AST_binop("<", ast_ize_expr lhs, ast_ize_expr rhs, vloc)
-   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term(">", vloc)]); rhs])
+   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term(">", vloc)]); rhs]) (* if there is a ">", then you need to generate AST binary operation*)
       -> AST_binop(">", ast_ize_expr lhs, ast_ize_expr rhs, vloc)
-   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("<=", vloc)]); rhs])
+   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("<=", vloc)]); rhs]) (* if there is a "<=", then you need to generate AST binary operation*)
       -> AST_binop("<=", ast_ize_expr lhs, ast_ize_expr rhs, vloc)
-   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term(">=", vloc)]); rhs])
+   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term(">=", vloc)]); rhs]) (* if there is a ">=", then you need to generate AST binary operation*)
       -> AST_binop(">=", ast_ize_expr lhs, ast_ize_expr rhs, vloc)
-   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("==", vloc)]); rhs])
+   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("==", vloc)]); rhs]) (* if there is a "==", then you need to generate AST binary operation*)
       -> AST_binop("==", ast_ize_expr lhs, ast_ize_expr rhs, vloc)
-   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("<>", vloc)]); rhs])
+   | PT_nt ("C", _, [lhs; PT_nt ("RO", _, [PT_term("<>", vloc)]); rhs]) (* if there is a "<>", then you need to generate AST binary operation*)
       -> AST_binop("<>", ast_ize_expr lhs, ast_ize_expr rhs, vloc)
    | _ -> raise (Failure "malformed parse tree in ast_ize_cond")
  ;;
@@ -806,31 +806,31 @@
      *)
      temp_scopes: scope_info list;
      scopes     : scope_info list;
-     layer      : int;
-     max_mem    : int;
-     max_temp   : int;
+     layer      : int; (* the current layer *)
+     max_mem    : int; (* the max memory used *)
+     max_temp   : int; (* the max temp used *)
      
    };;
 
- let empty_symtab = { scopes = []; temp_scopes = []; layer = 0; max_mem = 0; max_temp = 0;};;
+ let empty_symtab = { scopes = []; temp_scopes = []; layer = 0; max_mem = 0; max_temp = 0;};; (* the empty symbol table *)
  
  (* Open a new scope, in which variable names can be reused. *)
  let new_scope (st:symtab) : symtab =
    { 
-    scopes     = { variables = [] } :: st.scopes;
-    temp_scopes     = { variables = [] } :: st.temp_scopes;
-    layer      = st.layer;
-    max_mem    = st.max_mem;
-    max_temp   = st.max_temp;
+    scopes     = { variables = [] } :: st.scopes; (* add scope here*)
+    temp_scopes     = { variables = [] } :: st.temp_scopes; (* add scope here*)
+    layer      = st.layer; (* layer does not change *)
+    max_mem    = st.max_mem; (* max_mem does not change *)
+    max_temp   = st.max_temp; (* max_temp does not change *)
    };;
 
   let add_layer (st:symtab) : symtab =
    { 
-    scopes     = st.scopes;
-    temp_scopes     = st.temp_scopes;
-    layer      = st.layer + 1;
-    max_mem    = st.max_mem;
-    max_temp   = st.max_temp;
+    scopes     = st.scopes; (* scope does not change *)
+    temp_scopes     = st.temp_scopes; (* temp scope does not change *)
+    layer      = st.layer + 1; (* add layer *)
+    max_mem    = st.max_mem; (* max_mem does not change *)
+    max_temp   = st.max_temp; (* max_temp does not change *)
    };;
  
  (* Executed at end of statement list to erase variables from table. *)
@@ -842,10 +842,10 @@
     | []            -> raise (Failure "no temp scopes left to pop")
     | _ :: surround -> surround in
     { scopes     = ss;
-      temp_scopes     = tss;
-      layer      = st.layer;
-      max_mem    = st.max_mem;
-      max_temp   = st.max_temp;
+      temp_scopes     = tss; (* define a temp scope*)
+      layer      = st.layer; (* define the layer that will enlarge for a new if or while statement*)
+      max_mem    = st.max_mem; (* define the max memory that will enlarge for a new if or while statement*)
+      max_temp   = st.max_temp; (* define the max temp that will enlarge for a new if or while statement*)
      }
   )
 
@@ -866,29 +866,24 @@
      | Atom          (* variable or constant *)
      | Temp of int;; (* "register" number *)
  type operand =
-   { text : string;
-     kind : okind
+   { text : string; (* text of operand *)
+     kind : okind (* kind of operand *)
    };;
  
  (* Identify triple corresponding to an id. *)
  let name_match_st id = fun (sym, _, _) -> id = sym;;
  
- (*
-     NOTICE: you will need a better (correct) way to allocate memory
-     addresses for variables.  These routines are placeholders for
-     functionality that you probably want to roll into the symbol table.
- *)
 
 
  let rec new_mem_addr (sc) : int =
   match sc with 
-  |[] -> 0
-  | curr::left -> (List.length (curr.variables) + new_mem_addr left)
+  |[] -> 0 (* if there is no scope, the memory address is 0 *)
+  | curr::left -> (List.length (curr.variables) + new_mem_addr left) (* if there is a scope, the memory address is the length of the current scope plus the memory address of the left scopes *)
  
  and new_temp_addr (sc): int =
   match sc with 
-  |[] -> 0
-  | curr::left -> (List.length (curr.variables) + new_temp_addr left)
+  |[] -> 0 (* if there is no scope, the temp address is 0 *)
+  | curr::left -> (List.length (curr.variables) + new_temp_addr left) (* if there is a scope, the temp address is the length of the current scope plus the temp address of the left scopes *)
 
  
  (* Insert id with type t and a newly chosen address into current scope
@@ -909,7 +904,7 @@
                       :: surround;
                   temp_scopes = st.temp_scopes;
                   layer      = st.layer;
-                  max_mem    = if st.max_mem < new_mem_addr(st.scopes) then new_mem_addr(st.scopes) else st.max_mem;
+                  max_mem    = if st.max_mem < new_mem_addr(st.scopes) then new_mem_addr(st.scopes) else st.max_mem; (* update max_mem *)
                   max_temp   = st.max_temp;},
                   true))
       )
@@ -924,9 +919,9 @@
                 temp_scopes     =
                     { variables = (id, t, new_temp_addr (st.temp_scopes)) :: temp_scope.variables }
                     :: surround;
-                    layer      = st.layer;
-                    max_mem    = st.max_mem;
-                    max_temp   = if st.max_temp < new_temp_addr(st.temp_scopes) then new_temp_addr(st.temp_scopes) else st.max_temp;},
+                    layer      = st.layer; (* layer is the same *)
+                    max_mem    = st.max_mem; (* max_mem is the same *)
+                    max_temp   = if st.max_temp < new_temp_addr(st.temp_scopes) then new_temp_addr(st.temp_scopes) else st.max_temp;}, (* max_temp is the same or bigger *)
                 true))
     )
  
@@ -946,22 +941,22 @@
             (match is_atom with
             | true ->
               (match t with
-                | Int     -> (t, ("i[" ^ Int.to_string a ^ "]"), "", st)
-                | Real    -> (t, ("r[" ^ Int.to_string a ^ "]"), "", st)
+                | Int     -> (t, ("i[" ^ Int.to_string a ^ "]"), "", st) (* return an int *)
+                | Real    -> (t, ("r[" ^ Int.to_string a ^ "]"), "", st) (* return a real *)
                 | Unknown -> (t, "", "", st)
               )   (* already complained *)
             | false -> 
               (match t with
-                | Int     -> (t, ("ti[" ^ Int.to_string a ^ "]"), "", st)
-                | Real    -> (t, ("tr[" ^ Int.to_string a ^ "]"), "", st)
-                | Unknown -> (t, "", "", st)
+                | Int     -> (t, ("ti[" ^ Int.to_string a ^ "]"), "", st) (* return a temp integer *)
+                | Real    -> (t, ("tr[" ^ Int.to_string a ^ "]"), "", st) (* return a temp real *)
+                | Unknown -> (t, "", "", st) (* already complained *)
               )
             )
             
          | None -> helper surround in
   match is_atom with
-  | true -> helper st.scopes
-  | false -> helper st.temp_scopes;;
+  | true -> helper st.scopes (* look in scopes *)
+  | false -> helper st.temp_scopes;; (* look in temp scopes *)
  
  (********
      Utility routines assumed available by translated code.
@@ -1057,42 +1052,42 @@
    (*
      NOTICE: your code here
    *)
-    | AST_error -> raise (Failure "translate_s error")
+    | AST_error -> raise (Failure "translate_s error") (* error *)
     | AST_i_dec(id, loc) ->
       let (new_st, success) = insert_st id Int st true in(
-        if success then (new_st, [], []) 
-        else (new_st, [], [id ^ " cannot be redeclared here"])
+        if success then (new_st, [], []) (* successfully declare *)
+        else (new_st, [], [id ^ " cannot be redeclared here"]) (* already declared *)
       )
     | AST_r_dec(id, loc) ->
       let (new_st, success) = insert_st id Real st true in (
-        if success then (new_st, [], []) 
-        else (new_st, [], [id ^ " cannot be redeclared here"])
+        if success then (new_st, [], [])  (* successfully declare *)
+        else (new_st, [], [id ^ " cannot be redeclared here"]) (* already declared *)
       )
     | AST_read(id, loc) -> 
       let (new_st, code, error) = translate_read id loc st in(
-        (new_st, code, error)
+        (new_st, code, error) (* return code and error *)
       )
     | AST_write(expr) ->
       let (new_st, code, error) = translate_write expr st in(
         match error with
         | [] -> (new_st, code, [])
-        | _ -> (new_st, [], error)
+        | _ -> (new_st, [], error) (* return code and error *)
       )
     | AST_assign(id, expr, vloc, aloc) ->
       let (new_st, code, error) = translate_assign id expr vloc aloc st in(
         match error with
-        | [] -> (new_st, code, [])
-        | _ -> (new_st, [], error)
+        | [] -> (new_st, code, []) 
+        | _ -> (new_st, [], error) (* return code and error *)
       )
     | AST_if(expr, sl) ->
       let (new_st, code, error) = translate_if expr sl st in(
         match error with
         | [] -> (new_st, code, [])
-        | _ -> (new_st, [], error)
+        | _ -> (new_st, [], error) (* return code and error *)
       )
     | AST_while(expr, sl) ->
       let (new_st, code, error) = translate_while expr sl st in(
-        (new_st, code, error)
+        (new_st, code, error) (* return code and error *)
       )
  
  and translate_read (id:string) (loc:row_col) (* of variable *) (st:symtab)
@@ -1105,12 +1100,12 @@
     (
       match tp with
       | Int -> (
-          (new_st, [code ^ " = getint();"], [])
+          (new_st, [code ^ " = getint();"], []) (* return code will get an int from the suer *)
         )
       | Real -> (
-          (new_st, [code ^ " = getreal();"], [])
+          (new_st, [code ^ " = getreal();"], []) (* return code will get a real from the user *)
           )
-      | _ -> new_st, [], [error]
+      | _ -> new_st, [], [error] (* return error *) (* error *)
     )
 
  
@@ -1119,27 +1114,24 @@
      (* new symtab, code, error messages *)
    let (new_st, tp, code, oprand, error) = translate_expr expr st in
    let is_atom = oprand.kind in
-   (*
-     NOTICE: your code here
-   *)
    (
     match error with 
     | [] -> (
         match tp with
         | Int -> (
           match is_atom with
-          | Atom -> (new_st, ["putint(" ^ oprand.text ^ ");"], [])
-          | _ -> (new_st, code @ ["putint(" ^ oprand.text ^ ");"], [])
+          | Atom -> (new_st, ["putint(" ^ oprand.text ^ ");"], []) (* return code will print an int *)
+          | _ -> (new_st, code @ ["putint(" ^ oprand.text ^ ");"], []) (* return code will print an int *)
           
         )
         | Real -> (
           match is_atom with
-          | Atom -> (new_st, ["putreal(" ^ oprand.text ^ ");"], [])
-          | _ -> (new_st, code @ ["putreal(" ^ oprand.text ^ ");"], [])
+          | Atom -> (new_st, ["putreal(" ^ oprand.text ^ ");"], []) (* return code will print a real *)
+          | _ -> (new_st, code @ ["putreal(" ^ oprand.text ^ ");"], []) (* return code will print a real *)
         )
-        | _ -> (new_st, [], error)
+        | _ -> (new_st, [], error) (* return error *) (* error *)
       )
-    | _ -> (new_st, [], error)
+    | _ -> (new_st, [], error) (* return error *) (* error *)
    )
  
  and translate_assign (id:string) (rhs:ast_e) (vloc:row_col) (aloc:row_col) (st:symtab)
@@ -1150,15 +1142,15 @@
    *)
    let (tp, code, error, new_st) = lookup_st id st vloc true in
    let (new_st, rhs_tp, setup_code, oprand, rhs_error) = translate_expr rhs new_st in
-   let is_atom = oprand.kind in
+   let is_atom = oprand.kind in (* we will check the type and see if it is temperal variable *)
    if error = "" && rhs_error = [] then
       (
         if tp = rhs_tp then
           match is_atom with
-          | Atom -> (new_st, [code ^ " = " ^ oprand.text ^ ";"], [])
-          | _ -> (new_st, setup_code @ [code ^ " = " ^ oprand.text ^ ";"], [])
+          | Atom -> (new_st, [code ^ " = " ^ oprand.text ^ ";"], []) (* return code will assign a value to a variable *)
+          | _ -> (new_st, setup_code @ [code ^ " = " ^ oprand.text ^ ";"], []) (* return code will assign a value to a variable *)
         else
-          (new_st, [], ["assign type mismatch"])
+          (new_st, [], ["assign type mismatch"]) (* return error *) (* error *)
     )
     else
       (new_st, [], [error] @ rhs_error)
@@ -1171,66 +1163,66 @@
       (*
         NOTICE: your code here
       *)
-        let st = add_layer st in
-        let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
-        let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
-        let is_atom1 = oprand1.kind in
-        let is_atom2 = oprand2.kind in
-        let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
-        let (st, success) = insert_st temp_id lhs_tp st false in
-        let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
-        let new_st = new_scope st in
-        let (st3, sl_code, sl_errs) = translate_sl sl new_st in
-        let st4 = add_layer (end_scope st3) in
-        let error = lhs_error @ rhs_error @ sl_errs in
-        if lhs_tp = rhs_tp then (
+        let st = add_layer st in (* add a new layer to the symbol table *)
+        let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in (* translate the left hand side *)
+        let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in (* translate the right hand side *)
+        let is_atom1 = oprand1.kind in (* we will check the type and see if it is temperal variable *)
+        let is_atom2 = oprand2.kind in (* we will check the type and see if it is temperal variable *)
+        let temp_id = (oprand1.text ^ operator ^ oprand2.text) in (* we will use this to generate a temperal variable *)
+        let (st, success) = insert_st temp_id lhs_tp st false in (* insert the temperal variable into the symbol table *)
+        let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in (* lookup the temperal variable *)
+        let new_st = new_scope st in (* remove the layer from the symbol table *)
+        let (st3, sl_code, sl_errs) = translate_sl sl new_st in (* translate the statement list *)
+        let st4 = add_layer (end_scope st3) in (* add a new layer to the symbol table *)
+        let error = lhs_error @ rhs_error @ sl_errs in (* combine all the errors *)
+        if lhs_tp = rhs_tp then ( (* check if the types are the same *)
               match error with
               | [] -> (
                 match operator with
-                | "<>" -> (
+                | "<>" -> ( (* if the operator is <> *)
                   match is_atom1 with
-                  | Atom -> (
+                  | Atom -> ( (* if the left hand side is an atom *)
                     match is_atom2 with
-                    | Atom -> (
-                      (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    | Atom -> ( (* if both are atoms *)
+                      (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], []) (* return code will check if the left hand side is not equal to the right hand side *)
                     )
-                    | _ -> (
-                      (st4, r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                    | _ -> ( (* if the right hand side is not an atom *)
+                      (st4, r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], []) (* return code will check if the left hand side is not equal to the right hand side *)
                     )
                   )
-                  | _ -> (
+                  | _ -> ( (* if the left hand side is not an atom *)
                     match is_atom2 with
-                    | Atom -> (
+                    | Atom -> ( (* if the right hand side is an atom *)
                       (st4, l_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                     )
-                    | _ -> (
+                    | _ -> ( (* if the right hand side is not an atom *)
                       (st4, l_code @ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                     )
                   )
                  )
-                | _ -> (
+                | _ -> ( (* if the operator is not <>, that is to say other operations *)
                   match is_atom1 with
-                  | Atom -> (
+                  | Atom -> ( (* if the left hand side is an atom *)
                     match is_atom2 with
-                    | Atom -> (
+                    | Atom -> ( (* if both are atoms *)
                       (st4, [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                     )
-                    | _ -> (
+                    | _ -> ( (* if the right hand side is not an atom *)
                       (st4, r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                     )
                   )
                   | _ -> (
                     match is_atom2 with
-                    | Atom -> (
+                    | Atom -> ( (* if the right hand side is an atom *)
                       (st4, l_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                     )
-                    | _ -> (
+                    | _ -> ( (* if the right hand side is not an atom *)
                       (st4, l_code @ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["L" ^ (string_of_int st4.layer) ^":;"], [])
                     )
                   )
                 )
             )
-            | _ -> (st4, [], error)
+            | _ -> (st4, [], error) (* if there are errors, return the errors *)
           )
         else
           (st, [], lhs_error @ rhs_error @["if type mismatch"] @ sl_errs)
@@ -1247,66 +1239,66 @@
       (*
         NOTICE: your code here
       *)
-        let st = add_layer st in
-        let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
-        let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
-        let is_atom1 = oprand1.kind in
-        let is_atom2 = oprand2.kind in
-        let new_st = new_scope st in
-        let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
-        let (new_st, success) = insert_st temp_id lhs_tp new_st false in
-        let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
-        let (st3, sl_code, sl_errs) = translate_sl sl new_st in
-        let error = lhs_error @ rhs_error @ sl_errs in
-        let st4 = add_layer (end_scope st3) in
-        if lhs_tp = rhs_tp then
-          match error with
-          | [] -> (
+        let st = add_layer st in (* add a new layer to the symbol table *)
+        let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in (* translate the left hand side *)
+        let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in (* translate the right hand side *)
+        let is_atom1 = oprand1.kind in (* check if the left hand side is an atom *)
+        let is_atom2 = oprand2.kind in (* check if the right hand side is an atom *)
+        let new_st = new_scope st in (* create a new scope *)
+        let temp_id = (oprand1.text ^ operator ^ oprand2.text) in (* create a temporary id *)
+        let (new_st, success) = insert_st temp_id lhs_tp new_st false in (* insert the temporary id into the symbol table *)
+        let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in (* lookup the temporary id in the symbol table *)
+        let (st3, sl_code, sl_errs) = translate_sl sl new_st in (* translate the statement list *)
+        let error = lhs_error @ rhs_error @ sl_errs in (* combine all the errors *)
+        let st4 = add_layer (end_scope st3) in (* add a new layer to the symbol table *)
+        if lhs_tp = rhs_tp then (* if the types of the left hand side and the right hand side are the same *)
+          match error with (* check if there are errors *)
+          | [] -> ( (* if there are no errors *)
             match operator with
-            | "<>" -> (
+            | "<>" -> ( (* if the operator is <>, that is to say != *)
               match is_atom1 with
-              | Atom -> (
+              | Atom -> ( (* if the left hand side is an atom *)
                 match is_atom2 with
-                | Atom -> (
+                | Atom -> ( (* if both are atoms *)
                   (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
-                | _ -> (
-                  (st4, r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                | _ -> ( (* if the right hand side is not an atom *)
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
               )
-              | _ -> (
+              | _ -> ( (* if the left hand side is not an atom *)
                 match is_atom2 with
-                | Atom -> (
-                  (st4, l_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                | Atom -> ( (* if the right hand side is an atom *)
+                  (st4,  ["L" ^ (string_of_int st.layer) ^ ":"]@ l_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
-                | _ -> (
-                  (st4, l_code @ r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                | _ -> ( (* if the left hand side is not an atom *)
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@ l_code @ r_code @[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
               )
             )
-            | _ -> (
+            | _ -> ( (* if the operator is not <> *)
               match is_atom1 with
-              | Atom -> (
+              | Atom -> ( (* if the left hand side is an atom *)
                 match is_atom2 with
-                | Atom -> (
+                | Atom -> ( (* if the left hand side and the right hand side are both atoms *)
                   (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
                 | _ -> (
-                  (st4, r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
               )
-              | _ -> (
+              | _ -> ( (* if the left hand side is not an atom *)
                 match is_atom2 with
-                | Atom -> (
-                  (st4, l_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                | Atom -> ( (* if the right hand side is an atom *)
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@ l_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
-                | _ -> (
-                  (st4, l_code @ r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                | _ -> ( (* if the left hand side and the right hand side are not atoms *)
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@ l_code @ r_code @ [temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
                 )
               )
             )
           )
-          | _ -> (st4, [], error)
+          | _ -> (st4, [], error) (* if there are errors, return the symbol table and the errors *)
         else
           (new_st, [], lhs_error @ rhs_error @ ["while type mismatch"] @ sl_errs)
 
@@ -1316,18 +1308,18 @@
      : symtab * tp * string list * operand * string list =
      (* new symtab, type, setup code, self, error messages *)
    match expr with
-    | AST_int(i, _)            -> (st, Int, [i], {text = i; kind = Atom}, [])
+    | AST_int(i, _)            -> (st, Int, [i], {text = i; kind = Atom}, []) (* return the integer as an atom *)
    (*
      NOTICE: your code here
    *)
-    | AST_real(real, _) -> (st, Real, [real], {text = real; kind = Atom}, [])
-    | AST_id(id, loc) -> 
-      let (tp, code, error, new_st) = lookup_st id st loc true in
+    | AST_real(real, _) -> (st, Real, [real], {text = real; kind = Atom}, []) (* return the real as an atom *)
+    | AST_id(id, loc) ->  (* return the id as an atom *)
+      let (tp, code, error, new_st) = lookup_st id st loc true in (* lookup the symbol table for the id *)
         (
-          match tp with
-        | Int -> (new_st, tp, [code], {text = code; kind = Atom}, [])
-        | Real -> (new_st, tp, [code], {text = code; kind = Atom}, [])
-        | Unknown -> (new_st, tp, [], {text = code; kind = Atom}, [error])
+          match tp with (* if the id is found in the symbol table *)
+        | Int -> (new_st, tp, [code], {text = code; kind = Atom}, []) (* return the integer as an atom *)
+        | Real -> (new_st, tp, [code], {text = code; kind = Atom}, []) (* return the real as an atom *)
+        | Unknown -> (new_st, tp, [], {text = code; kind = Atom}, [error]) (* return the error message *)
         )
     | AST_float(ex, loc) -> 
       let (st, tp, code1, operand, error) = translate_expr ex st in
@@ -1336,115 +1328,115 @@
       | [] -> 
         (
           match tp with
-        | Int -> (
-          let is_atom = operand.kind in
-          let (new_st, success) = insert_st ("(float) " ^ operand.text) Int st false in
+        | Int -> ( 
+          let is_atom = operand.kind in (* check if the operand is an atom *)
+          let (new_st, success) = insert_st ("(float) " ^ operand.text) Real st false in (* insert the float into the symbol table *)
           match success with
-          |true -> (
-            let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) new_st (0,0) false in
-            match is_atom with
-            | Atom -> (new_st, Real, [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
-            | _ -> (new_st, Real, code1 @ [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
-            )
-          |false -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
-          
-          )
+          |true -> ( (* if the insertion is successful *)
+            let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) new_st (0,0) false in (* lookup the float in the symbol table *)
+            match is_atom with (* if the operand is an atom *)
+            | Atom -> (new_st, Real, [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, []) (* return the float as a temp *)
+            | _ -> (new_st, Real, code1 @ [code ^ " = to_real(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, []) (* return the float as a temp *)
+            ) (* if the insertion is not successful *)
+          |false -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"]) 
+          ) (* if the type of the operand is not int *)
         | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, ["float() can only be applied to integer"])
-        )
+        ) (* if there are errors *)
       | _ -> (st, tp, [], {text = "float(" ^ operand.text ^ ")"; kind = Atom}, error)
-      )
-    | AST_trunc(ex, loc) -> 
-      let (st, tp, code1, operand, error) = translate_expr ex st in
-      (match error with
-      | [] -> 
+      ) (* if the type of the operand is not int *)
+    | AST_trunc(ex, loc) ->  (* truncate the real to integer *)
+      let (st, tp, code1, operand, error) = translate_expr ex st in  (* translate the expression *)
+      (
+      match error with
+      | [] ->  
         (
-          match tp with
-          | Real -> (
-            let (new_st, success) = insert_st ("(trunc) " ^ operand.text) Real st false in 
-            let is_atom = operand.kind in
-            match success with
-              |true -> (
-                let (tp, code, error, new_st) = lookup_st ("(trunc) " ^ operand.text) new_st (0,0) false in
-                match is_atom with
-                | Atom -> (new_st, Int, [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
+          match tp with (* if the type of the operand is real *)
+          | Real -> ( 
+            let (new_st, success) = insert_st ("(trunc) " ^ operand.text) Int st false in (* insert the trunc into the symbol table *)
+            let is_atom = operand.kind in (* check if the operand is an atom *)
+            match success with (* if the insertion is successful *)
+              |true -> ( (* if the trunc is successfully inserted into the symbol table *)
+                let (tp, code, error, new_st) = lookup_st ("(trunc) " ^ operand.text) new_st (0,0) false in (* lookup the trunc in the symbol table *)
+                match is_atom with (* check if the operand is an atom *)
+                | Atom -> (new_st, Int, [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, []) (* return the trunc as a temp *)
                 | _ -> (new_st, Int, code1 @ [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
-              )
-              | false -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"])
-            )
-          | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"])
-        )
+              ) (* if the trunc is not successfully inserted into the symbol table *)
+              | false -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["redeclare the temp variable"]) (* return the error message *)
+            ) (* if the type of the operand is not real *)
+          | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, ["trunc() can only be applied to real"]) (* return the error message *)
+          ) (* if there are errors *)
       | _ -> (st, tp, [], {text = "trunc(" ^ operand.text ^ ")"; kind = Atom}, error)
-      )
+      ) (* if the type of the operand is not real *)
     | AST_binop(operator, ex1, ex2, loc) ->
-      let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in
-      let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in
+      let (st, tp1, code1, operand1, error1) = translate_expr ex1 st in (* translate the first expression *)
+      let (st, tp2, code2, operand2, error2) = translate_expr ex2 st in (* translate the second expression *)
       let error = error1 @ error2 in(
         match error with
         | [] -> 
           if tp1 = tp2 then
-            let temp_id = (operand1.text ^ operator ^ operand2.text) in
-            let (st, success) = insert_st temp_id tp1 st false in
-            let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
-            let is_atom1 = operand1.kind in
-            let is_atom2 = operand2.kind in
+            let temp_id = (operand1.text ^ operator ^ operand2.text) in (* create the temp id *)
+            let (st, success) = insert_st temp_id tp1 st false in (* insert the temp into the symbol table *)
+            let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in (* lookup the temp in the symbol table *)
+            let is_atom1 = operand1.kind in (* check if the first operand is an atom *)
+            let is_atom2 = operand2.kind in (* check if the second operand is an atom *)
             match operator with
             | "/" -> 
               (match tp1 with
-              | Int -> (
+              | Int -> ( (* integer division *)
                 match is_atom1 with 
-                | Atom -> (
+                | Atom -> ( (* if the first operand is an atom *)
                   match is_atom2 with
-                  | Atom -> (st, Int, [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
-                  | _ -> (st, tp1, code2 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  | Atom -> (st, Int, [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, []) (* return the temp as a temp *)
+                  | _ -> (st, tp1, code2 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, []) (* return the temp as a temp *)
                   )
-                | _ -> (
-                  match is_atom2 with
-                  | Atom -> (st, tp1, code1 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                | _ -> ( (* the first operand is not an atom *)
+                  match is_atom2 with (* check if the second operand is an atom *)
+                  | Atom -> (st, tp1, code1 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, []) (* return the temp as a temp *)
                   | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ " = divide_int(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
-                  )
-              )
+                  ) (* return the temp as a temp *)
+              ) (* integer division *)
               | Real -> (
                 match is_atom1 with 
-                | Atom -> (
+                | Atom -> ( (* check if the first operand is an atom *)
                   match is_atom2 with
-                  | Atom -> (st, Real, [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
+                  | Atom -> (st, Real, [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, []) (* return the temp as a temp *)
                   | _ -> (st, tp1, code2 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
                   )
-                | _ -> (
+                | _ -> ( (* the first operand is not an atom *)
                   match is_atom2 with
                   | Atom -> (st, tp1, code1 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
                   | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
-                  )
+                ) (* return the temp as a temp *)
               )
               | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, error1 @ ["divide type mismatch"] @ error2)
-              )
-            | "<>" -> (
+            )
+            | "<>" -> ( (* check if the two operands are not equal *)
               match is_atom1 with
-              | Atom -> (
+              | Atom -> ( (* check if the first operand is an atom *)
                 match is_atom2 with
                 | Atom -> (st, tp1, [temp_code ^ "=" ^  operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 | _ -> (st, tp1, code2 @ [temp_code ^ "=" ^  operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 )
-              | _ -> (
-                match is_atom2 with
+              | _ -> ( (* the first operand is not an atom *)
+                match is_atom2 with (* check if the second operand is an atom *)
                 | Atom -> (st, tp1, code1 @ [temp_code ^ "=" ^ operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ "=" ^ operand1.text ^ "!=" ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 )
             )
-            | _ -> (
-              match is_atom1 with
-              | Atom -> (
-                match is_atom2 with
+            | _ -> ( (* other operators *)
+              match is_atom1 with (* check if the first operand is an atom *)
+              | Atom -> ( (* the first operand is an atom *)
+                match is_atom2 with (* check if the second operand is an atom *)
                 | Atom -> (st, tp1, [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 | _ -> (st, tp1, code2 @ [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 )
-              | _ -> (
-                match is_atom2 with
+              | _ -> ( (* the first operand is not an atom *)
+                match is_atom2 with (* check if the second operand is an atom *)
                 | Atom -> (st, tp1, code1 @ [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ "=" ^ operand1.text ^ operator ^ operand2.text ^ ";"], {text = temp_code; kind = Temp(0)}, [])
                 )
             )
-          else(
+          else( (* the two operands are not the same type *)
             (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, error1 @ ["two operand type mismatch"] @ error2)
             )
         | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
