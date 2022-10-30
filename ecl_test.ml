@@ -1173,16 +1173,16 @@
       *)
         let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
         let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
-        if lhs_tp = rhs_tp then
-          let is_atom1 = oprand1.kind in
-          let is_atom2 = oprand2.kind in
-          let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
-          let (st, success) = insert_st temp_id lhs_tp st false in
-          let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
-          let new_st = new_scope st in
-          let (st3, sl_code, sl_errs) = translate_sl sl new_st in
-          let st4 = end_scope st3 in
-          let error = lhs_error @ rhs_error @ sl_errs in (
+        let is_atom1 = oprand1.kind in
+        let is_atom2 = oprand2.kind in
+        let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
+        let (st, success) = insert_st temp_id lhs_tp st false in
+        let (temp_tp, temp_code, error, st) = lookup_st temp_id st (0,0) false in
+        let new_st = new_scope st in
+        let (st3, sl_code, sl_errs) = translate_sl sl new_st in
+        let st4 = end_scope st3 in
+        let error = lhs_error @ rhs_error @ sl_errs in
+        if lhs_tp = rhs_tp then (
               match error with
               | [] -> (
                 match operator with
@@ -1232,7 +1232,7 @@
             | _ -> (st4, [], error)
           )
         else
-          (st, [], ["if type mismatch"])
+          (st, [], lhs_error @ rhs_error @["if type mismatch"] @ sl_errs)
       | _ -> raise (Failure "unexpected expression type as condition")
  
  and translate_while (c:ast_e) (sl:ast_sl) (st:symtab)
@@ -1248,27 +1248,65 @@
       *)
         let (st, lhs_tp, l_code, oprand1, lhs_error) = translate_expr lhs st in
         let (st, rhs_tp, r_code, oprand2, rhs_error) = translate_expr rhs st in
+        let is_atom1 = oprand1.kind in
+        let is_atom2 = oprand2.kind in
         let new_st = new_scope st in
-        if lhs_tp = rhs_tp then 
-          let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
-          let (new_st, success) = insert_st temp_id lhs_tp new_st false in
-          let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
-          let (st3, sl_code, sl_errs) = translate_sl sl new_st in
-          let error = lhs_error @ rhs_error @ sl_errs in
-          let st4 = add_layer (end_scope st3) in
+        let temp_id = (oprand1.text ^ operator ^ oprand2.text) in
+        let (new_st, success) = insert_st temp_id lhs_tp new_st false in
+        let (temp_tp, temp_code, error, new_st) = lookup_st temp_id new_st (0,0) false in
+        let (st3, sl_code, sl_errs) = translate_sl sl new_st in
+        let error = lhs_error @ rhs_error @ sl_errs in
+        let st4 = add_layer (end_scope st3) in
+        if lhs_tp = rhs_tp then
           match error with
           | [] -> (
             match operator with
             | "<>" -> (
-              (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+              match is_atom1 with
+              | Atom -> (
+                match is_atom2 with
+                | Atom -> (
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
+                | _ -> (
+                  (st4, r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
               )
-            | _ -> (
-              (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+              | _ -> (
+                match is_atom2 with
+                | Atom -> (
+                  (st4, l_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
+                | _ -> (
+                  (st4, l_code @ r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ "!=" ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
               )
             )
+            | _ -> (
+              match is_atom1 with
+              | Atom -> (
+                match is_atom2 with
+                | Atom -> (
+                  (st4, ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
+                | _ -> (
+                  (st4, r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
+              )
+              | _ -> (
+                match is_atom2 with
+                | Atom -> (
+                  (st4, l_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
+                | _ -> (
+                  (st4, l_code @ r_code @ ["L" ^ (string_of_int st.layer) ^ ":"]@[temp_code ^ " = " ^ oprand1.text ^ " " ^ operator ^ " " ^ oprand2.text ^ ";"] @ ["if (!" ^ temp_code ^ ") goto L" ^ (string_of_int st4.layer) ^ ";"] @ sl_code @["goto L" ^ (string_of_int st.layer) ^ ";"] @["L" ^ (string_of_int st4.layer) ^":;"], [])
+                )
+              )
+            )
+          )
           | _ -> (st4, [], error)
         else
-          (new_st, [], ["while type mismatch"])
+          (new_st, [], lhs_error @ rhs_error @ ["while type mismatch"] @ sl_errs)
 
       | _ -> raise (Failure "unexpected expression type as condition")
  
@@ -1324,7 +1362,7 @@
             let is_atom = operand.kind in
             match success with
               |true -> (
-                let (tp, code, error, new_st) = lookup_st ("(float) " ^ operand.text) new_st (0,0) false in
+                let (tp, code, error, new_st) = lookup_st ("(trunc) " ^ operand.text) new_st (0,0) false in
                 match is_atom with
                 | Atom -> (new_st, Int, [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
                 | _ -> (new_st, Int, code1 @ [code ^ " = to_int(" ^ operand.text ^ ");"], {text = code; kind = Temp(0)}, [])
@@ -1376,7 +1414,7 @@
                   | _ -> (st, tp1, code1 @ code2 @ [temp_code ^ " = divide_real(" ^ operand1.text ^ ", " ^ operand2.text ^ ");"], {text = temp_code; kind = Temp(0)}, [])
                   )
               )
-              | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["divide type mismatch"])
+              | _ -> (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, error1 @ ["divide type mismatch"] @ error2)
               )
             | "<>" -> (
               match is_atom1 with
@@ -1405,7 +1443,7 @@
                 )
             )
           else(
-            (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, ["two operand type mismatch"])
+            (st, tp1, [], {text = operand1.text ^ operator ^ operand2.text; kind = Atom}, error1 @ ["two operand type mismatch"] @ error2)
             )
         | _ -> (st, tp1, [], {text = ""; kind = Atom}, error)
       )

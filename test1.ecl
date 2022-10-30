@@ -8,7 +8,22 @@ read int n;
              int cf2 := 2 ;
              int pr := cf1 * cf2 ;
              while pr <= cp do
-                 while pr == cp do
+                 if pr == cp then
+                     found := 1 ;
+
+                     while found < 10 do
+                         found := found + 1 ;
+                         if found == 3 then
+                                found := found - 1 ;
+                         end ;
+                         while found < 6 do
+                             found := found + 1 ;
+                             if found == 5 then
+                                    found := found - 1 ;
+                             end ;
+                         end ;
+                     end ;
+
                      found := 1 ;
                  end ;
                  cf2 := cf2 + 1 ;
